@@ -1,0 +1,9 @@
+# Nemotron-Labs-Diffusion-3B environment. Install torch for your CUDA version first, e.g.
+#   pip install torch --index-url https://download.pytorch.org/whl/cu128
+# The model's remote code requires transformers >= 4.53 (tested: 4.56.2).
+transformers==4.56.2
+datasets
+safetensors
+numpy
+accelerate
+pytest

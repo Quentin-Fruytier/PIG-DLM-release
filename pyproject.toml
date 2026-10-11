@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pig-dlm"
+version = "0.1.0"
+description = "Parallel Inconsistency Guidance (PIG): parallel decoding for diffusion language models"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "torch",
+    "transformers",
+    "datasets",
+    "safetensors",
+]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[tool.setuptools.packages.find]
+include = ["pig*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
