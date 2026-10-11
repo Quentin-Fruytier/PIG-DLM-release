@@ -6,8 +6,8 @@ Official code for the paper by Quentin Fruytier, Anton Xue, Sanjay Shakkottai an
 harness, the trained adapters and the calibration tables.
 
 > **Release in progress (October 2026).** The code, the two trained adapters and the four calibration
-> tables are in this repository (`assets/`). Still to come: the arXiv link to the paper, a Hugging Face
-> model repository for the adapters, and a license file. The repository URL is stable.
+> tables are in this repository (`assets/`). Still to come: the arXiv link to the paper and a Hugging Face
+> model repository for the adapters. The repository URL is stable.
 
 ## The idea
 
@@ -186,6 +186,12 @@ tests/              unit tests (python -m pytest)
 ```bash
 python -m pytest     # CPU only: the rules against the paper's algorithms, tables, adapters, graders
 ```
+
+## License
+
+MIT (see [`LICENSE`](LICENSE)) for the code, the adapters and the calibration tables. The backbones are
+not redistributed; their licenses, and the provenance of the Nemotron assets, are stated in
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
 ## Citation
 
