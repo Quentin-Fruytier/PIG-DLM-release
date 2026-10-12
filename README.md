@@ -2,8 +2,9 @@
 
 Official code for the paper by Quentin Fruytier, Anton Xue, Sanjay Shakkottai and Sujay Sanghavi
 (The University of Texas at Austin). The release covers our two PIG decoders, **PIG.INT** and
-**PIG.EXT**, on **LLaDA-8B-Instruct** and **Nemotron-Labs-Diffusion-3B**, together with the HumanEval
-harness, the trained adapters and the calibration tables.
+**PIG.EXT**, on **LLaDA-8B-Instruct** and **Nemotron-Labs-Diffusion-3B** (NVIDIA's instruct model, published
+under that plain id; the base model is `-3B-Base`), together with the HumanEval harness, the trained adapters and
+the calibration tables.
 
 > **Release in progress (October 2026).** The code, the two trained adapters and the four calibration
 > tables are in this repository (`assets/`) and mirrored on the Hugging Face Hub

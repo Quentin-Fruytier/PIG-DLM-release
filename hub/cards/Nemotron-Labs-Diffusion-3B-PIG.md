@@ -15,10 +15,14 @@ tags:
 - pig
 ---
 
-# PIG adapter for Nemotron-Labs-Diffusion-3B
+# PIG adapter for Nemotron-Labs-Diffusion-3B (the instruct model)
 
 The trained components of **Parallel Inconsistency Guidance (PIG)** for
-[Nemotron-Labs-Diffusion-3B](https://huggingface.co/nvidia/Nemotron-Labs-Diffusion-3B): a ~1.9M-parameter
+[Nemotron-Labs-Diffusion-3B](https://huggingface.co/nvidia/Nemotron-Labs-Diffusion-3B), NVIDIA's **instruct**
+(chat) model. NVIDIA publishes the instruct model under that plain id and the base model separately as
+`nvidia/Nemotron-Labs-Diffusion-3B-Base`; everything here is fitted to the instruct model, which the paper calls
+Nemotron-Labs-Diffusion-3B-Instruct (Nemotron-3B-Instruct in its tables), and is not meant for the base model.
+The adapter is a ~1.9M-parameter
 adapter that predicts, from the one forward pass the decoder already runs, how committing any masked position
 of the current block would change the backbone's uncertainty at every other masked position, and two
 calibration tables that turn those predictions into the probability that a parallel commit disagrees with
@@ -51,8 +55,9 @@ Each `.npz` holds `x_edges` (bin edges on the confidence or entropy axis), `mu_e
 coupling axis), `rates` (the empirical mismatch rate of each cell), `rows` and `flips` (the commit and mismatch
 counts behind each cell), `axis` and `description`.
 
-The backbone is not redistributed here. The wrapper loads `nvidia/Nemotron-Labs-Diffusion-3B` at the pinned
-revision `0d51902d` from its own repository, under NVIDIA's licence terms.
+The backbone is not redistributed here. The wrapper loads `nvidia/Nemotron-Labs-Diffusion-3B` (the instruct
+model) at the pinned revision `0d51902d` from its own repository, under NVIDIA's licence terms, and wraps every
+prompt in its chat template.
 
 ## Use
 
@@ -168,13 +173,14 @@ is decoded with its own tables.
 
 ## Intended use and caveats
 
-- The adapter and the tables are fitted to this backbone at the pinned revision. A different checkpoint, or a
-  different adapter, needs refitted tables: the coupling bins are quantiles of this adapter's own predictions.
+- The adapter and the tables are fitted to the instruct model at the pinned revision. A different checkpoint
+  (including `Nemotron-Labs-Diffusion-3B-Base`), or a different adapter, needs refitted tables: the coupling
+  bins are quantiles of this adapter's own predictions.
 - The tables were fitted on sliding 32-token-window states and are applied unchanged at every block size and
   geometry in the paper; that transfer is assumed, not measured.
 - Greedy (argmax) decoding throughout; the reference the decoders match is greedy sequential decoding.
-- These are research artefacts for accelerating Nemotron-Labs-Diffusion-3B. They add no safety tuning and
-  inherit the backbone's behaviour and limitations.
+- These are research artefacts for accelerating the Nemotron-Labs-Diffusion-3B instruct model. They add no
+  safety tuning and inherit the backbone's behaviour and limitations.
 
 ## License
 

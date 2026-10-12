@@ -34,7 +34,7 @@ evaluation harness and the paper's operating points are in the code repository.
 Anton Xue, Sanjay Shakkottai, Sujay Sanghavi (The University of Texas at Austin), 2026. arXiv link to follow.  
 **Code:** https://github.com/Quentin-Fruytier/PIG-DLM-release  
 **Companion:** [UT-IFML/Nemotron-Labs-Diffusion-3B-PIG](https://huggingface.co/UT-IFML/Nemotron-Labs-Diffusion-3B-PIG),
-the same two components fitted for Nemotron-Labs-Diffusion-3B.
+the same two components fitted for Nemotron-Labs-Diffusion-3B (NVIDIA's instruct model).
 
 ## Files
 
