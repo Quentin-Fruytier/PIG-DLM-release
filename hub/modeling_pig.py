@@ -120,8 +120,8 @@ class PIGModel(PreTrainedModel):
         if mode not in MODES:
             raise ValueError(f"unknown mode {mode!r}; expected one of {MODES}")
         if mode == "pig.int":
-            if theta is not None or floor is not None:
-                raise ValueError("mode='pig.int' takes phi only (theta and floor belong to pig.ext)")
+            if theta is not None or floor is not None or window is not None:
+                raise ValueError("mode='pig.int' takes phi only (theta, floor and window belong to pig.ext)")
             return PIGInt(self.tables["confidence"], d["phi"] if phi is None else phi)
         if mode == "pig.ext":
             if phi is not None:
@@ -129,7 +129,7 @@ class PIGModel(PreTrainedModel):
             return PIGExt(self.tables["entropy"], d["theta"] if theta is None else theta,
                           window=d["window"] if window is None else window,
                           floor=d["floor"] if floor is None else floor)
-        if phi is not None or theta is not None or floor is not None:
+        if phi is not None or theta is not None or floor is not None or window is not None:
             raise ValueError("mode='confidence' takes nu only")
         return ConfidenceThreshold(d["nu"] if nu is None else nu)
 
