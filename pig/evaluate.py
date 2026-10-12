@@ -22,7 +22,8 @@ from .humaneval import grade, load_problems, prompt_text, wilson
 from .rules import PIGExt, PIGInt
 from .tables import FlipTable
 
-ASSETS = Path(__file__).resolve().parent.parent / "assets"
+from .assets import ASSETS, asset_paths  # noqa: F401  (asset_paths is part of this module's API)
+
 MODELS = ("llada", "nemotron")
 RULES = ("pig-int", "pig-ext")
 
@@ -33,12 +34,6 @@ def sha256(path):
         for chunk in iter(lambda: f.read(1 << 20), b""):
             h.update(chunk)
     return h.hexdigest()
-
-
-def asset_paths(model, assets=ASSETS):
-    d = Path(assets) / model
-    return {"fde": d / "fde.safetensors", "confidence": d / "flip_confidence.npz",
-            "entropy": d / "flip_entropy.npz"}
 
 
 def load_decoder(model, assets=ASSETS, device="cuda"):

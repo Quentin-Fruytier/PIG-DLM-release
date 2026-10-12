@@ -6,8 +6,10 @@ Official code for the paper by Quentin Fruytier, Anton Xue, Sanjay Shakkottai an
 harness, the trained adapters and the calibration tables.
 
 > **Release in progress (October 2026).** The code, the two trained adapters and the four calibration
-> tables are in this repository (`assets/`). Still to come: the arXiv link to the paper and a Hugging Face
-> model repository for the adapters. The repository URL is stable.
+> tables are in this repository (`assets/`) and mirrored on the Hugging Face Hub
+> ([LLaDA-8B-Instruct-PIG](https://huggingface.co/UT-IFML/LLaDA-8B-Instruct-PIG),
+> [Nemotron-Labs-Diffusion-3B-PIG](https://huggingface.co/UT-IFML/Nemotron-Labs-Diffusion-3B-PIG)).
+> Still to come: the arXiv link to the paper. The repository URL is stable.
 
 ## The idea
 
@@ -109,6 +111,12 @@ assets/SHA256SUMS
 ```
 
 Here `<model>` is `llada` or `nemotron`. Every result file records the SHA-256 of the assets it used.
+
+The same six files are mirrored on the Hugging Face Hub, one repository per backbone, with model cards:
+[UT-IFML/LLaDA-8B-Instruct-PIG](https://huggingface.co/UT-IFML/LLaDA-8B-Instruct-PIG) and
+[UT-IFML/Nemotron-Labs-Diffusion-3B-PIG](https://huggingface.co/UT-IFML/Nemotron-Labs-Diffusion-3B-PIG).
+If `assets/<model>/` is missing or incomplete, `pig.assets.resolve` downloads the files from there into the
+`huggingface_hub` cache, so the code also runs from a checkout without `assets/`.
 
 ## Quick start
 
