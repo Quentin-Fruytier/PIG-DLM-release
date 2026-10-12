@@ -141,6 +141,26 @@ def pig_ext(cand, conf, H, D, table, theta, window=16, floor=None):
     return S
 
 
+def confidence_threshold(cand, conf, nu):
+    """Confidence-threshold decoding (Fast-dLLM; Nemotron's native decoder): commit every
+    eligible position whose confidence reaches nu, and always the most confident one."""
+    order = confidence_order(cand, conf)
+    if not order:
+        return []
+    S = [c for c in order if float(conf[c]) >= nu]
+    return S if S else order[:1]
+
+
+class ConfidenceThreshold:
+    """The confidence-threshold baseline as a per-round rule: ConfidenceThreshold(nu)(round)."""
+
+    def __init__(self, nu):
+        self.nu = float(nu)
+
+    def __call__(self, rnd):
+        return confidence_threshold(rnd.cand, rnd.conf, self.nu)
+
+
 class PIGInt:
     """PIG.INT as a per-round rule: PIGInt(confidence_table, phi)(round) -> positions."""
 

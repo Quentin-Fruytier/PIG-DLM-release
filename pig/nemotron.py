@@ -81,7 +81,7 @@ class NemotronDecoder:
         self.mask_id = self.model.mask_token_id
         self.eos_id = self.tokenizer.eos_token_id
         self.embed = self.model.get_input_embeddings().weight
-        self.fde = load_fde(NemotronFDE, fde_path, device)
+        self.fde = load_fde(NemotronFDE, fde_path, device)   # a path, or an already-built NemotronFDE
 
     def chat_prompt(self, text):
         prompt = self.tokenizer.apply_chat_template([{"role": "user", "content": text}],

@@ -103,7 +103,7 @@ class LLaDADecoder:
         self.head = self.model.get_output_embeddings()
         self.head.register_forward_hook(lambda m, inp, out: self._hidden.__setitem__("h", inp[0].detach()))
         self.embed = self.model.get_input_embeddings().weight
-        self.fde = load_fde(LLaDAFDE, fde_path, device)
+        self.fde = load_fde(LLaDAFDE, fde_path, device)   # a path, or an already-built LLaDAFDE
 
     def chat_prompt(self, text):
         return self.tokenizer.apply_chat_template([{"role": "user", "content": text}],

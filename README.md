@@ -120,6 +120,21 @@ If `assets/<model>/` is missing or incomplete, `pig.assets.resolve` downloads th
 
 ## Quick start
 
+The easiest way to run PIG is the Hugging Face Hub model, which needs only `transformers` (and a GPU):
+
+```python
+from transformers import AutoModel
+
+model = AutoModel.from_pretrained("UT-IFML/LLaDA-8B-Instruct-PIG", trust_remote_code=True)   # or UT-IFML/Nemotron-Labs-Diffusion-3B-PIG
+out = model.generate("Write a Python function that returns the n-th Fibonacci number.", mode="pig.int", phi=0.1)
+print(out.text, out.forwards, out.tpf)       # mode="pig.ext", theta=..., floor=...  |  mode="confidence", nu=...
+```
+
+The Hub repositories are built from this package by `python -m hub.build` (see `hub/`): the wrapper's decoders,
+rules, tables and adapter are vendored verbatim from `pig/`, and `python -m hub.verify` checks on a GPU that the
+wrapper and this harness decode identically. What follows is the harness, which reproduces the paper's
+operating points.
+
 One operating point on all 164 HumanEval problems:
 
 ```bash
@@ -184,6 +199,7 @@ pig/nemotron.py     Nemotron-Labs-Diffusion-3B decoding backend
 pig/humaneval.py    HumanEval prompts, graders and Wilson intervals
 pig/evaluate.py     one operating point            (python -m pig.evaluate)
 pig/sweep.py        a grid of operating points     (python -m pig.sweep)
+hub/                the Hugging Face Hub wrapper and its build / verify / upload scripts
 pig/summarize.py    result tables                  (python -m pig.summarize)
 configs/            the paper's HumanEval operating points
 tests/              unit tests (python -m pytest)
