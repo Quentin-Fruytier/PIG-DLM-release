@@ -28,6 +28,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
+from .backbones.nemotron import NemotronLabsDiffusionModel
 from .fde import NemotronFDE, load_fde
 from .rules import Round
 
@@ -72,12 +73,13 @@ class NemotronDecoder:
     geometry_cls = Window
 
     def __init__(self, fde_path, device="cuda", model_id=MODEL_ID, revision=REVISION):
-        from transformers import AutoModel, AutoTokenizer
+        from transformers import AutoTokenizer
 
         self.device = device
         self.model_id, self.revision = model_id, revision
-        self.tokenizer = AutoTokenizer.from_pretrained(model_id, revision=revision, trust_remote_code=True)
-        self.model = (AutoModel.from_pretrained(model_id, revision=revision, trust_remote_code=True)
+        self.tokenizer = AutoTokenizer.from_pretrained(model_id, revision=revision)
+        # the backbone's weights at the pinned revision, loaded into this package's copy of its modeling code
+        self.model = (NemotronLabsDiffusionModel.from_pretrained(model_id, revision=revision)
                       .to(device).to(torch.bfloat16).eval())
         for p in self.model.parameters():
             p.requires_grad_(False)

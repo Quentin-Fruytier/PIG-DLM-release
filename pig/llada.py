@@ -23,6 +23,7 @@ from dataclasses import dataclass
 import numpy as np
 import torch
 
+from .backbones.llada import LLaDAModelLM
 from .fde import LLaDAFDE, load_fde
 from .rules import Round
 
@@ -94,13 +95,13 @@ class LLaDADecoder:
     geometry_cls = Geometry
 
     def __init__(self, fde_path, device="cuda", model_id=MODEL_ID, revision=REVISION):
-        from transformers import AutoModel, AutoTokenizer
+        from transformers import AutoTokenizer
 
         self.device = device
         self.model_id, self.revision = model_id, revision
-        self.tokenizer = AutoTokenizer.from_pretrained(model_id, revision=revision, trust_remote_code=True)
-        self.model = AutoModel.from_pretrained(model_id, revision=revision, trust_remote_code=True,
-                                               torch_dtype=torch.bfloat16).to(device).eval()
+        self.tokenizer = AutoTokenizer.from_pretrained(model_id, revision=revision)
+        # the backbone's weights at the pinned revision, loaded into this package's copy of its modeling code
+        self.model = LLaDAModelLM.from_pretrained(model_id, revision=revision, dtype=torch.bfloat16).to(device).eval()
         self._final = _capture_final_attention(self.model)
         self._hidden = {}
         self.head = self.model.get_output_embeddings()
