@@ -3,8 +3,8 @@
 Official code for the paper by Quentin Fruytier, Anton Xue, Sanjay Shakkottai and Sujay Sanghavi
 (The University of Texas at Austin). The release covers our two PIG decoders, **PIG.INT** and
 **PIG.EXT**, on **LLaDA-8B-Instruct** and **Nemotron-Labs-Diffusion-3B** (NVIDIA's instruct model, published
-under that plain id; the base model is `-3B-Base`), together with the HumanEval harness, the trained adapters and
-the calibration tables.
+under that plain id; the base model is `-3B-Base`), together with the evaluation harness (HumanEval and GSM8K,
+with the confidence-threshold baseline), the trained adapters and the calibration tables.
 
 > **Release in progress (October 2026).** The code, the two trained adapters and the four calibration
 > tables are in this repository (`assets/`) and mirrored on the Hugging Face Hub
@@ -136,28 +136,37 @@ rules, tables and adapter are vendored verbatim from `pig/`, and `python -m hub.
 wrapper and this harness decode identically. What follows is the harness, which reproduces the paper's
 operating points.
 
-One operating point on all 164 HumanEval problems:
+One operating point (`--task humaneval`, the default, runs all 164 problems; `--task gsm8k` runs the
+first 500 test problems, as in the paper):
 
 ```bash
-# LLaDA-8B-Instruct, PIG.INT with φ = 0.1, fixed 64-token blocks
-python -m pig.evaluate --model llada --rule pig-int --phi 0.1 \
-    --geometry block --block 64 --out results/llada/block64_pig-int_phi0.1.json
+# LLaDA-8B-Instruct, HumanEval, PIG.INT with φ = 0.1, fixed 64-token blocks
+python -m pig.evaluate --task humaneval --model llada --rule pig-int --phi 0.1 \
+    --geometry block --block 64 --out results/llada/humaneval/llada_humaneval_block64_pig-int_phi0.1.json
 
-# Nemotron-Labs-Diffusion-3B, PIG.EXT with θ = 0.25 and a 0.8 confidence floor, fixed 32-token blocks
-python -m pig.evaluate --model nemotron --rule pig-ext --theta 0.25 --floor 0.8 \
-    --geometry block --block 32 --out results/nemotron/block32_pig-ext_theta0.25_floor0.8.json
+# Nemotron-Labs-Diffusion-3B, GSM8K, PIG.EXT with θ = 0.25 and a 0.8 confidence floor, fixed 32-token blocks
+python -m pig.evaluate --task gsm8k --model nemotron --rule pig-ext --theta 0.25 --floor 0.8 \
+    --geometry block --block 32 --out results/nemotron/gsm8k/nemotron_gsm8k_block32_pig-ext_theta0.25_floor0.8.json
+
+# the confidence-threshold baseline (the Fast-dLLM rule) at ν = 0.9
+python -m pig.evaluate --task gsm8k --model llada --rule confidence --nu 0.9 \
+    --geometry block --block 64 --out results/llada/gsm8k/llada_gsm8k_block64_confidence_nu0.9.json
 ```
 
 A whole frontier: the model is loaded once, and finished operating points are skipped, so an
 interrupted sweep resumes where it stopped.
 
 ```bash
-python -m pig.sweep configs/humaneval_llada.json                  # -> results/llada/*.json
-python -m pig.sweep configs/humaneval_nemotron.json --only block32
-python -m pig.summarize results/llada results/nemotron            # markdown tables (--latex for LaTeX rows)
+python -m pig.sweep configs/humaneval_llada.json                  # -> results/llada/humaneval/*.json
+python -m pig.sweep configs/gsm8k_llada.json --only block64 sliding64
+python -m pig.sweep configs/gsm8k_nemotron.json
+python -m pig.summarize results/llada/gsm8k results/nemotron/gsm8k   # markdown tables (--latex for LaTeX rows)
 ```
 
-The configs list the operating points of the paper's HumanEval tables for every decoding geometry.
+The four configs (`configs/<task>_<model>.json`) list the operating points of the paper's frontier
+tables for every decoding geometry: the confidence-threshold ladder, the PIG.INT φ ladder and the
+PIG.EXT θ ladder with its two floored slow points. Each result file holds every problem's completion
+and scores, the accuracy with its Wilson interval, the throughput, and the SHA-256 of the assets used.
 
 From Python:
 
@@ -179,12 +188,15 @@ print(f"{256 / forwards:.1f} tokens per forward")
 
 | | LLaDA-8B-Instruct | Nemotron-Labs-Diffusion-3B |
 |---|---|---|
-| prompt | chat template; user turn = "Complete the following Python function. Return the complete function in a \`\`\`python code block." + problem prompt | chat template; user turn = "Complete the following Python function." + problem prompt |
+| HumanEval prompt | chat template; user turn = "Complete the following Python function. Return the complete function in a \`\`\`python code block." + problem prompt; 0-shot | chat template; user turn = "Complete the following Python function." + problem prompt; 0-shot |
+| GSM8K prompt | chat template; user turn = five fixed exemplars from the training split (seed 1234) in the `Question:`/`Answer:`/`####` format, then `Question: <q>` and `Answer:` | chat template; user turn = the question as is; 0-shot |
 | canvas | 256 tokens, always filled; no KV cache | up to 2048 tokens, stops at end of sequence; prefix KV cache |
 | candidate geometries | `full` canvas; `block` B (semi-autoregressive blocks); `sliding` B (the B leftmost masked positions) | `block` B (fixed slab); `sliding` B (a window holding B masked positions); `nested` B (a B-wide commit band in a window holding 2B masked positions) |
-| decoding | 0-shot, greedy (argmax) | 0-shot, greedy (argmax) |
+| decoding | greedy (argmax); shots as above | greedy (argmax); 0-shot throughout |
 | throughput (TPF) | 256 / mean forward passes per problem | mean over problems of generated tokens / forward passes, counting the prompt pass and cache updates |
-| grading | pass@1. A fenced block that defines the entry point is the whole program; otherwise the completion continues the prompt, cut at the HumanEval stop sequences. 10 s timeout | pass@1. The last fenced block that defines the entry point, prefixed with the prompt when needed. 15 s timeout |
+| HumanEval grading | pass@1. A fenced block that defines the entry point is the whole program; otherwise the completion continues the prompt, cut at the HumanEval stop sequences. 10 s timeout | pass@1. The last fenced block that defines the entry point, prefixed with the prompt when needed. 15 s timeout |
+| GSM8K grading | lm-eval's two extractors on the generation cut at the stop sequences: flexible (the last number; the reported metric) and strict (the first `#### <number>` line); both are recorded | the same extractors; flexible is the reported metric |
+| problems | HumanEval: all 164; GSM8K: the first 500 of the test split | the same |
 
 Accuracies are reported with Wilson 95% intervals. Results shift slightly between GPU types, because
 the backbone's floating-point results differ across hardware.
@@ -198,18 +210,20 @@ pig/fde/            adapter architectures (LLaDA, Nemotron)
 pig/llada.py        LLaDA-8B-Instruct decoding backend
 pig/nemotron.py     Nemotron-Labs-Diffusion-3B decoding backend
 pig/humaneval.py    HumanEval prompts, graders and Wilson intervals
+pig/gsm8k.py        GSM8K prompts (5-shot LLaDA / 0-shot Nemotron) and extractors
+pig/tasks.py        the task registry (one interface for every benchmark)
 pig/evaluate.py     one operating point            (python -m pig.evaluate)
 pig/sweep.py        a grid of operating points     (python -m pig.sweep)
 hub/                the Hugging Face Hub wrapper and its build / verify / upload scripts
 pig/summarize.py    result tables                  (python -m pig.summarize)
-configs/            the paper's HumanEval operating points
+configs/            the paper's HumanEval and GSM8K operating points, per model
 tests/              unit tests (python -m pytest)
 ```
 
 ## Tests
 
 ```bash
-python -m pytest     # CPU only: the rules against the paper's algorithms, tables, adapters, graders
+python -m pytest     # CPU only: the rules against the paper's algorithms, tables, adapters, graders, the harness plumbing
 ```
 
 ## License

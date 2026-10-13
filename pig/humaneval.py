@@ -24,6 +24,12 @@ LLADA_INSTRUCTION = ("Complete the following Python function. Return the complet
                      "in a ```python code block.\n\n")
 NEMOTRON_INSTRUCTION = "Complete the following Python function.\n\n"
 
+NAME = "humaneval"
+N = 164
+SHOTS = {"llada": 0, "nemotron": 0}
+METRICS = ("pass@1",)
+PRIMARY = "pass@1"
+
 # HumanEval stop sequences (continuation-style completions)
 STOPS = ("\nclass ", "\ndef ", "\n#", "\nif __name__", "\nprint(", "\n@", "\n```")
 
@@ -141,6 +147,10 @@ def grade_nemotron(problem, completion, timeout=15.0):
 
 def grade(model, problem, completion):
     return grade_llada(problem, completion) if model == "llada" else grade_nemotron(problem, completion)
+
+
+def score(model, problem, completion):
+    return {"pass@1": bool(grade(model, problem, completion))}
 
 
 # ------------------------------------------------------------------------------------------------
