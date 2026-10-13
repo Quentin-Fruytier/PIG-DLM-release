@@ -1,6 +1,6 @@
 """Parity of two builds of PIG: record what the decoder sees and emits, then compare two recordings.
 
-    python -m hub.parity capture --family llada --out /ssd1/.../llada_main.pt [--n 8] [--device cuda:0]
+    python -m hub.parity capture --family llada --out /ssd1/.../llada_main.pt [--n 8] [--device cuda:0] [--matrix]
     python -m hub.parity compare A.pt B.pt
 
 capture: for the first --n HumanEval and the first --n GSM8K prompts (the model's own prompt protocol),
@@ -41,24 +41,43 @@ def prompts(family, n):
     return items
 
 
+# --matrix: every geometry of the paper's tables x four operating points (one per lane, plus an unfloored PIG.EXT)
+MATRIX = {
+    "llada": dict(geometries=[("full", 0), ("block", 32), ("block", 64), ("sliding", 32), ("sliding", 64)],
+                  modes=[dict(mode="pig.int", phi=0.1), dict(mode="pig.ext", theta=0.25, floor=0.8),
+                         dict(mode="pig.ext", theta=1.0), dict(mode="confidence", nu=0.85)]),
+    "nemotron": dict(geometries=[("block", 32), ("sliding", 32), ("nested", 32), ("block", 64), ("nested", 16)],
+                     modes=[dict(mode="pig.int", phi=0.1), dict(mode="pig.ext", theta=0.25, floor=0.8),
+                            dict(mode="pig.ext", theta=1.0), dict(mode="confidence", nu=0.9)]),
+}
+
+
 def capture(a):
     import pig
     import transformers
     model = pig.load(a.family, device=a.device)
     block = 64 if a.family == "llada" else 32
+    if a.matrix:
+        cases = [((g, b), m) for (g, b) in MATRIX[a.family]["geometries"] for m in MATRIX[a.family]["modes"]]
+    else:
+        cases = [(("block", block), dict(mode="pig.int", phi=0.1))]
     rec = dict(family=a.family, transformers=transformers.__version__, torch=torch.__version__,
                backbone=f"{type(model.backbone).__module__}.{type(model.backbone).__name__}",
                gpu=torch.cuda.get_device_name(a.device) if a.device.startswith("cuda") else "cpu", prompts={})
-    for name, text in prompts(a.family, a.n):
-        rule = Recorder(model.rule("pig.int", phi=0.1))
-        ids = model.encode(text)
-        t0 = time.perf_counter()
-        if a.family == "llada":
-            tokens, forwards, _ = model.decoder.generate(ids, rule, model.geometry("block", block), canvas=256)
-        else:
-            tokens, forwards, _ = model.decoder.generate(ids, rule, model.geometry("block", block), max_new=2048)
-        rec["prompts"][name] = dict(tokens=[int(t) for t in tokens], forwards=int(forwards), rounds=rule.rounds)
-        print(f"[{name}] {len(tokens)} tok / {forwards} fwd / {len(rule.rounds)} rounds ({time.perf_counter() - t0:.1f}s)", flush=True)
+    items = prompts(a.family, a.n)
+    for (geom, size), mode in cases:
+        tag = f"{geom}{size}/" + "/".join(f"{k}={v}" for k, v in mode.items())
+        for name, text in items:
+            key = name if not a.matrix else f"{tag}|{name}"
+            rule = Recorder(model.rule(**mode))
+            ids = model.encode(text)
+            t0 = time.perf_counter()
+            if a.family == "llada":
+                tokens, forwards, _ = model.decoder.generate(ids, rule, model.geometry(geom, size), canvas=256)
+            else:
+                tokens, forwards, _ = model.decoder.generate(ids, rule, model.geometry(geom, size), max_new=2048)
+            rec["prompts"][key] = dict(tokens=[int(t) for t in tokens], forwards=int(forwards), rounds=rule.rounds)
+            print(f"[{key}] {len(tokens)} tok / {forwards} fwd / {len(rule.rounds)} rounds ({time.perf_counter() - t0:.1f}s)", flush=True)
     torch.save(rec, a.out)
     print(f"wrote {a.out}: {len(rec['prompts'])} prompts, transformers {rec['transformers']}, backbone {rec['backbone']}")
 
@@ -97,6 +116,7 @@ def main():
     sub = ap.add_subparsers(dest="cmd", required=True)
     c = sub.add_parser("capture"); c.add_argument("--family", required=True); c.add_argument("--out", required=True)
     c.add_argument("--n", type=int, default=8); c.add_argument("--device", default="cuda")
+    c.add_argument("--matrix", action="store_true", help="every geometry x four operating points (see MATRIX)")
     d = sub.add_parser("compare"); d.add_argument("a"); d.add_argument("b")
     a = ap.parse_args()
     capture(a) if a.cmd == "capture" else compare(a)
