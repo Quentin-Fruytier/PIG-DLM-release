@@ -1,19 +1,19 @@
 """Tabulate result files: one table per (model, task, geometry), rows sorted by rule and throughput.
 
-    python -m pig.summarize results/llada/gsm8k [results/nemotron/humaneval ...] [--latex]
+    python -m experiments.summarize results/llada/gsm8k [results/nemotron/humaneval ...] [--latex]
 """
 import argparse
 import json
 from collections import defaultdict
 from pathlib import Path
 
-RULE_ORDER = {"confidence": 0, "pig-int": 1, "pig-ext": 2}
+RULE_ORDER = {"confidence": 0, "pig.int": 1, "pig.ext": 2}
 
 
 def knob(cfg):
-    if cfg["rule"] == "pig-int":
+    if cfg["rule"] == "pig.int":
         return f"phi={cfg['phi']:g}"
-    if cfg["rule"] == "pig-ext":
+    if cfg["rule"] == "pig.ext":
         s = f"theta={cfg['theta']:g}"
         return s + (f" (nu>={cfg['floor']:g})" if cfg.get("floor") is not None else "")
     return f"nu={cfg['nu']:g}"

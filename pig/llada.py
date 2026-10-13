@@ -90,6 +90,9 @@ def _capture_final_attention(model):
 
 
 class LLaDADecoder:
+    family = "llada"
+    geometry_cls = Geometry
+
     def __init__(self, fde_path, device="cuda", model_id=MODEL_ID, revision=REVISION):
         from transformers import AutoModel, AutoTokenizer
 

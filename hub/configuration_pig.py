@@ -6,15 +6,10 @@ The backbone itself is loaded from its own repository at the pinned revision.
 """
 from transformers import PretrainedConfig
 
-FAMILIES = ("llada", "nemotron")
-
-DEFAULTS = {
-    # one entry per family: the knobs generate() uses when the caller does not pass them
-    "llada": dict(mode="pig.int", phi=0.1, theta=0.5, floor=None, window=16, nu=0.9,
-                  geometry="block", block=32, canvas=256),
-    "nemotron": dict(mode="pig.int", phi=0.1, theta=0.5, floor=None, window=16, nu=0.9,
-                     geometry="block", block=32, max_new=2048),
-}
+try:
+    from .api import DEFAULTS, FAMILIES        # inside a Hub repository: api.py is vendored next to this file
+except ImportError:
+    from pig.api import DEFAULTS, FAMILIES     # inside the code repository
 
 
 class PIGConfig(PretrainedConfig):

@@ -8,41 +8,21 @@
 
 What from_pretrained loads: the adapter (model.safetensors) and the two calibration tables from this
 repository, then the backbone from its own repository at the pinned revision (config.backbone). The
-backbone's weights are never stored here. generate() runs one of three selection rules per decoding
-round: PIG.INT (mode="pig.int", budget phi), PIG.EXT (mode="pig.ext", budget theta, optional
-confidence floor) or the confidence-threshold baseline (mode="confidence", threshold nu). The decoders,
-rules, tables and adapter in the sibling modules are vendored verbatim from the code repository
-(https://github.com/Quentin-Fruytier/PIG-DLM-release), which also holds the evaluation harness.
+backbone's weights are never stored here. generate() is the code repository's `pig.api.PIG.generate`:
+PIG.INT (mode="pig.int", budget phi), PIG.EXT (mode="pig.ext", budget theta, optional confidence floor)
+or the confidence-threshold baseline (mode="confidence", threshold nu). The decoder, rules, tables,
+adapter and that interface in the sibling modules are vendored verbatim from the code repository
+(https://github.com/Quentin-Fruytier/PIG-DLM-release), so the two ways of loading PIG decode identically.
 """
-from dataclasses import dataclass, field
-
 import torch
 from transformers import PreTrainedModel
 from transformers.utils import cached_file
 
+from .api import MODES, PIG, Output as PIGOutput, make_rule  # noqa: F401  (MODES, PIGOutput: public names)
 from .configuration_pig import PIGConfig
-from .decoder import FAMILY, PIGDecoder, PIGGeometry
+from .decoder import FAMILY, PIGDecoder
 from .fde import PIGFDE
-from .rules import ConfidenceThreshold, PIGExt, PIGInt
 from .tables import FlipTable
-
-MODES = ("pig.int", "pig.ext", "confidence")
-
-
-@dataclass
-class PIGOutput:
-    """What generate() returns."""
-    text: str                       # the decoded generation (special tokens removed)
-    tokens: list                    # generated token ids
-    forwards: int                   # backbone forward passes spent
-    tpf: float                      # tokens per forward pass, the paper's throughput measure
-    mode: str
-    params: dict = field(default_factory=dict)
-    ms_per_round: dict = field(default_factory=dict)
-
-    def __repr__(self):
-        return (f"PIGOutput(mode={self.mode!r}, tokens={len(self.tokens)}, forwards={self.forwards}, "
-                f"tpf={self.tpf:.2f}, text={self.text[:60]!r}{'...' if len(self.text) > 60 else ''})")
 
 
 class PIGModel(PreTrainedModel):
@@ -58,6 +38,7 @@ class PIGModel(PreTrainedModel):
         self.fde = PIGFDE()
         self.tables = {}
         self._decoder = None          # the backbone + tokenizer + decode loop, attached after loading
+        self._pig = None              # the generate() interface around it
         self.post_init()
 
     def _init_weights(self, module):
@@ -89,6 +70,7 @@ class PIGModel(PreTrainedModel):
         if self.config.backbone_revision:
             kw["revision"] = self.config.backbone_revision
         self._decoder = PIGDecoder(self.fde, device=device, **kw)
+        self._pig = PIG(self._decoder, self.tables, self.config.defaults)
         return self
 
     @property
@@ -112,40 +94,25 @@ class PIGModel(PreTrainedModel):
         raise NotImplementedError("PIGModel has no forward of its own; use generate(). The adapter is "
                                   "model.fde and the backbone is model.backbone.")
 
-    # ---- decoding ------------------------------------------------------------------------------
+    # ---- decoding (pig.api.PIG) ----------------------------------------------------------------
     def rule(self, mode=None, phi=None, theta=None, floor=None, window=None, nu=None):
         """The per-round selection rule for `mode` with the given knobs (config defaults otherwise)."""
-        d = self.config.defaults
-        mode = mode or d["mode"]
-        if mode not in MODES:
-            raise ValueError(f"unknown mode {mode!r}; expected one of {MODES}")
-        if mode == "pig.int":
-            if theta is not None or floor is not None or window is not None:
-                raise ValueError("mode='pig.int' takes phi only (theta, floor and window belong to pig.ext)")
-            return PIGInt(self.tables["confidence"], d["phi"] if phi is None else phi)
-        if mode == "pig.ext":
-            if phi is not None:
-                raise ValueError("mode='pig.ext' takes theta (and optionally floor, window), not phi")
-            return PIGExt(self.tables["entropy"], d["theta"] if theta is None else theta,
-                          window=d["window"] if window is None else window,
-                          floor=d["floor"] if floor is None else floor)
-        if phi is not None or theta is not None or floor is not None or window is not None:
-            raise ValueError("mode='confidence' takes nu only")
-        return ConfidenceThreshold(d["nu"] if nu is None else nu)
+        return make_rule(self.tables, mode, phi=phi, theta=theta, floor=floor, window=window, nu=nu,
+                         defaults=self.config.defaults)
+
+    def _attached(self):
+        if self._pig is None:
+            raise RuntimeError("no backbone attached: load with from_pretrained(...) or call attach_backbone()")
+        return self._pig
 
     def encode(self, prompt, chat_template=True):
         """Token ids for `prompt`: a string (wrapped in the backbone's chat template unless
         chat_template=False) or an iterable of token ids, returned as is."""
-        if isinstance(prompt, str):
-            if chat_template:
-                return list(self._decoder.chat_prompt(prompt))
-            return self._decoder.tokenizer(prompt).input_ids
-        return [int(t) for t in prompt]
+        return self._attached().encode(prompt, chat_template=chat_template)
 
-    @torch.no_grad()
-    def generate(self, prompt, mode=None, phi=None, theta=None, floor=None, window=None, nu=None,
+    def generate(self, prompt, mode=None, phi=None, theta=None, floor=None, nu=None, window=None,
                  geometry=None, block=None, max_new_tokens=None, chat_template=True):
-        """Decode a completion of `prompt` with the chosen rule.
+        """Decode a completion of `prompt` with the chosen rule; see pig.api.PIG.generate.
 
         mode            "pig.int" (knob phi), "pig.ext" (knobs theta, floor, window) or
                         "confidence" (knob nu); defaults in config.defaults
@@ -156,22 +123,6 @@ class PIGModel(PreTrainedModel):
                         Nemotron: the generation budget (stops at end-of-sequence)
         Returns a PIGOutput with the text, the token ids, the forward passes and tokens per forward.
         """
-        if self._decoder is None:
-            raise RuntimeError("no backbone attached: load with from_pretrained(...) or call attach_backbone()")
-        d = self.config.defaults
-        rule = self.rule(mode, phi=phi, theta=theta, floor=floor, window=window, nu=nu)
-        geom = PIGGeometry(geometry or d["geometry"], d["block"] if block is None else int(block))
-        ids = self.encode(prompt, chat_template=chat_template)
-        if FAMILY == "llada":
-            length = d["canvas"] if max_new_tokens is None else int(max_new_tokens)
-            tokens, forwards, ms = self._decoder.generate(ids, rule, geom, canvas=length)
-        else:
-            length = d["max_new"] if max_new_tokens is None else int(max_new_tokens)
-            tokens, forwards, ms = self._decoder.generate(ids, rule, geom, max_new=length)
-        text = self._decoder.tokenizer.decode(tokens, skip_special_tokens=True)
-        params = dict(geometry=geom.kind, block=geom.size)
-        params.update({k: v for k, v in dict(phi=phi, theta=theta, floor=floor, window=window, nu=nu).items()
-                       if v is not None})
-        return PIGOutput(text=text, tokens=list(tokens), forwards=int(forwards),
-                         tpf=len(tokens) / max(int(forwards), 1), mode=mode or d["mode"],
-                         params=params, ms_per_round=dict(ms))
+        return self._attached().generate(prompt, mode=mode, phi=phi, theta=theta, floor=floor, nu=nu,
+                                         window=window, geometry=geometry, block=block,
+                                         max_new_tokens=max_new_tokens, chat_template=chat_template)

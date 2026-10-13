@@ -68,6 +68,9 @@ def _extend_to_masked(canvas, w0, n_masked, mask_id, end):
 
 
 class NemotronDecoder:
+    family = "nemotron"
+    geometry_cls = Window
+
     def __init__(self, fde_path, device="cuda", model_id=MODEL_ID, revision=REVISION):
         from transformers import AutoModel, AutoTokenizer
 

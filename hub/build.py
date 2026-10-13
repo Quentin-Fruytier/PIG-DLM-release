@@ -11,7 +11,8 @@ For each backbone this writes hub/dist/<repo name>/ holding everything the Hub r
     flip_entropy.npz
     configuration_pig.py    the wrapper (hub/configuration_pig.py, hub/modeling_pig.py)
     modeling_pig.py
-    rules.py, tables.py     vendored verbatim from pig/ with a provenance header
+    rules.py, tables.py,    vendored verbatim from pig/ with a provenance header (api.py is the
+    api.py                  generate() interface the wrapper exposes)
     fde.py                  pig/fde/common.py + pig/fde/<family>.py + load_fde, flattened
     decoder.py              pig/<family>.py plus the aliases the wrapper imports
     README.md               the model card, hub/cards/<repo name>.md
@@ -94,6 +95,7 @@ def build(family, out=DIST):
         shutil.copyfile(HUB / f, dst / f)
     (dst / "rules.py").write_text(vendor("pig/rules.py", stamp))
     (dst / "tables.py").write_text(vendor("pig/tables.py", stamp))
+    (dst / "api.py").write_text(vendor("pig/api.py", stamp))
     fde = (header("pig/fde/common.py + pig/fde/%s.py + pig/fde/__init__.py:load_fde" % family, stamp)
            + (ROOT / "pig/fde/common.py").read_text() + "\n\n"
            + "".join(ln for ln in (ROOT / f"pig/fde/{family}.py").read_text().splitlines(keepends=True)

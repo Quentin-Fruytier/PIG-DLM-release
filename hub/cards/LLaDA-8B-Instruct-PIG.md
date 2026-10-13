@@ -90,7 +90,7 @@ and `tpf`, the tokens per forward pass that the paper uses as its throughput mea
 `theta=0.125, floor=0.9` and `theta=0.25, floor=0.8`.
 
 The code repository reproduces the paper's HumanEval operating points from the same files
-(`python -m pig.evaluate`, `python -m pig.sweep`). The wrapper and that harness decode identically: checked
+(`python -m experiments.sweep`, see its `experiments/` folder). The wrapper and that harness decode identically: checked
 token for token, and forward pass for forward pass, on HumanEval problems under all three modes.
 
 ## What the adapter predicts

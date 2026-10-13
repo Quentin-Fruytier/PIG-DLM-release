@@ -4,11 +4,11 @@ import sys
 
 import pytest
 
-from pig import gsm8k, humaneval, tasks
-from pig.evaluate import RULES, cell_name, make_rule, run_cell
+from experiments import summarize, tasks
+from experiments.evaluate import RULES, cell_name, make_rule, run_cell
+from experiments.sweep import expand
+from experiments.tasks import gsm8k, humaneval
 from pig.rules import ConfidenceThreshold, PIGExt, PIGInt
-from pig.sweep import expand
-from pig import summarize
 
 
 class Geometry:
@@ -44,7 +44,7 @@ class FakeDecoder:
         return list(range(10)), f, {"forward": 1.0, "rule": 0.1}
 
 
-PROBLEMS = [dict(task_id=f"gsm8k/{i}", question=f"q{i}", answer=f"r\n#### 7") for i in range(3)]
+PROBLEMS = [dict(task_id=f"gsm8k/{i}", question=f"q{i}", answer="r\n#### 7") for i in range(3)]
 
 
 def test_registry_exposes_one_interface():
@@ -61,19 +61,19 @@ def test_registry_exposes_one_interface():
 
 def test_cell_names_carry_task_and_knob():
     g = Geometry("block", 64)
-    assert cell_name("llada", "gsm8k", "pig-int", g, phi=0.1) == "llada_gsm8k_block64_pig-int_phi0.1"
-    assert cell_name("llada", "gsm8k", "pig-ext", g, theta=0.25, floor=0.8) == "llada_gsm8k_block64_pig-ext_theta0.25_floor0.8"
+    assert cell_name("llada", "gsm8k", "pig.int", g, phi=0.1) == "llada_gsm8k_block64_pig.int_phi0.1"
+    assert cell_name("llada", "gsm8k", "pig.ext", g, theta=0.25, floor=0.8) == "llada_gsm8k_block64_pig.ext_theta0.25_floor0.8"
     assert cell_name("nemotron", "humaneval", "confidence", g, nu=0.9) == "nemotron_humaneval_block64_confidence_nu0.9"
 
 
-def test_make_rule_validates_the_knobs():
-    assert RULES == ("pig-int", "pig-ext", "confidence")
+def test_make_rule_fills_nothing_in_and_validates_the_knobs():
+    assert RULES == ("pig.int", "pig.ext", "confidence")
     assert isinstance(make_rule("llada", "confidence", nu=0.9), ConfidenceThreshold)
-    assert isinstance(make_rule("llada", "pig-int", phi=0.1), PIGInt)
-    assert isinstance(make_rule("llada", "pig-ext", theta=0.25, floor=0.8), PIGExt)
-    for bad in (dict(rule="confidence"), dict(rule="confidence", nu=0.9, phi=0.1),
-                dict(rule="pig-int", phi=0.1, nu=0.9), dict(rule="pig-ext", theta=0.5, nu=0.9),
-                dict(rule="pig-ext", phi=0.5), dict(rule="greedy", nu=0.9)):
+    assert isinstance(make_rule("llada", "pig.int", phi=0.1), PIGInt)
+    assert isinstance(make_rule("llada", "pig.ext", theta=0.25, floor=0.8), PIGExt)
+    for bad in (dict(rule="confidence"), dict(rule="confidence", nu=0.9, phi=0.1), dict(rule="pig.int"),
+                dict(rule="pig.int", phi=0.1, nu=0.9), dict(rule="pig.ext", theta=0.5, nu=0.9),
+                dict(rule="pig.ext", phi=0.5), dict(rule="greedy", nu=0.9)):
         with pytest.raises(ValueError):
             make_rule("llada", **bad)
 
@@ -81,9 +81,9 @@ def test_make_rule_validates_the_knobs():
 def test_sweep_expands_every_lane():
     cfg = {"model": "llada", "task": "gsm8k", "window": 8,
            "geometries": {"block64": {"geometry": "block", "block": 64, "confidence": [0.9],
-                                      "pig-int": [0.1, 0.2], "pig-ext": [[0.125, 0.9], 0.5]}}}
+                                      "pig.int": [0.1, 0.2], "pig.ext": [[0.125, 0.9], 0.5]}}}
     cells = expand(cfg)
-    assert [c[2]["rule"] for c in cells] == ["confidence", "pig-int", "pig-int", "pig-ext", "pig-ext"]
+    assert [c[2]["rule"] for c in cells] == ["confidence", "pig.int", "pig.int", "pig.ext", "pig.ext"]
     assert cells[0][2] == dict(rule="confidence", phi=None, theta=None, floor=None, nu=0.9, window=8)
     assert cells[3][2]["theta"] == 0.125 and cells[3][2]["floor"] == 0.9 and cells[4][2]["floor"] is None
 

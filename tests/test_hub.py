@@ -25,7 +25,7 @@ def test_layout(built):
     fam, d = built
     names = {p.name for p in d.iterdir()}
     assert {"config.json", "model.safetensors", "flip_confidence.npz", "flip_entropy.npz", "configuration_pig.py",
-            "modeling_pig.py", "rules.py", "tables.py", "fde.py", "decoder.py"} <= names
+            "modeling_pig.py", "rules.py", "tables.py", "api.py", "fde.py", "decoder.py"} <= names
     cfg = json.loads((d / "config.json").read_text())
     assert cfg["family"] == fam and cfg["auto_map"]["AutoModel"] == "modeling_pig.PIGModel"
     assert cfg["backbone"] and cfg["backbone_revision"]
@@ -33,7 +33,8 @@ def test_layout(built):
 
 def test_vendored_modules_are_the_package(built):
     fam, d = built
-    for name, src in (("rules.py", "pig/rules.py"), ("tables.py", "pig/tables.py"), ("decoder.py", f"pig/{fam}.py")):
+    for name, src in (("rules.py", "pig/rules.py"), ("tables.py", "pig/tables.py"), ("api.py", "pig/api.py"),
+                      ("decoder.py", f"pig/{fam}.py")):
         body = "".join(ln for ln in (d / name).read_text().splitlines(keepends=True) if not ln.startswith("# Vendored")
                        and not ln.startswith("# Do not edit"))
         assert body.startswith((ASSETS.parent / src).read_text()), f"{name} is not {src}"

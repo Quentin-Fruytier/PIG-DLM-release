@@ -1,16 +1,16 @@
 """Run one operating point on a benchmark and write one result file.
 
     # LLaDA-8B-Instruct, HumanEval, PIG.INT with phi = 0.1, fixed 64-token blocks
-    python -m pig.evaluate --task humaneval --model llada --rule pig-int --phi 0.1 \
-        --geometry block --block 64 --out results/llada/humaneval/llada_humaneval_block64_pig-int_phi0.1.json
+    python -m pig.evaluate --task humaneval --model llada --rule pig.int --phi 0.1 \
+        --geometry block --block 64 --out results/llada/humaneval/llada_humaneval_block64_pig.int_phi0.1.json
     # Nemotron-Labs-Diffusion-3B, GSM8K, PIG.EXT with theta = 0.25 and a 0.8 confidence floor
-    python -m pig.evaluate --task gsm8k --model nemotron --rule pig-ext --theta 0.25 --floor 0.8 \
-        --geometry block --block 32 --out results/nemotron/gsm8k/nemotron_gsm8k_block32_pig-ext_theta0.25_floor0.8.json
+    python -m pig.evaluate --task gsm8k --model nemotron --rule pig.ext --theta 0.25 --floor 0.8 \
+        --geometry block --block 32 --out results/nemotron/gsm8k/nemotron_gsm8k_block32_pig.ext_theta0.25_floor0.8.json
     # the confidence-threshold baseline (Fast-dLLM's rule) at nu = 0.9
     python -m pig.evaluate --task gsm8k --model llada --rule confidence --nu 0.9 \
         --geometry block --block 64 --out results/llada/gsm8k/llada_gsm8k_block64_confidence_nu0.9.json
 
-A whole grid (the model is loaded once): python -m pig.sweep configs/gsm8k_llada.json
+A whole grid (the model is loaded once): python -m experiments.sweep experiments/configs/gsm8k_llada.json
 """
 import argparse
 import hashlib
@@ -21,16 +21,16 @@ from pathlib import Path
 
 import numpy as np
 
-from . import __version__
-from . import tasks as task_registry
-from .humaneval import wilson
-from .rules import ConfidenceThreshold, PIGExt, PIGInt
-from .tables import FlipTable
+from pig import __version__
+from pig.api import MODES, make_rule as _make_rule
+from pig.assets import ASSETS, asset_paths
+from pig.loading import load_decoder, load_tables, make_geometry  # noqa: F401  (re-exported for the sweep)
 
-from .assets import ASSETS, asset_paths  # noqa: F401  (asset_paths is part of this module's API)
+from . import tasks as task_registry
+from .stats import wilson
 
 MODELS = ("llada", "nemotron")
-RULES = ("pig-int", "pig-ext", "confidence")
+RULES = MODES                                   # "pig.int" | "pig.ext" | "confidence"
 
 
 def sha256(path):
@@ -41,43 +41,19 @@ def sha256(path):
     return h.hexdigest()
 
 
-def load_decoder(model, assets=ASSETS, device="cuda"):
-    fde = asset_paths(model, assets)["fde"]
-    if model == "llada":
-        from .llada import LLaDADecoder
-        return LLaDADecoder(fde, device=device)
-    from .nemotron import NemotronDecoder
-    return NemotronDecoder(fde, device=device)
-
-
-def make_geometry(model, kind, size):
-    if model == "llada":
-        from .llada import Geometry
-        return Geometry(kind, size)
-    from .nemotron import Window
-    return Window(kind, size)
-
-
 def make_rule(model, rule, phi=None, theta=None, floor=None, window=16, nu=None, assets=ASSETS):
-    if rule == "pig-int":
-        if phi is None or theta is not None or floor is not None or nu is not None:
-            raise ValueError("pig-int takes --phi only")
-        return PIGInt(FlipTable.load(asset_paths(model, assets)["confidence"]), phi)
-    if rule == "pig-ext":
-        if theta is None or phi is not None or nu is not None:
-            raise ValueError("pig-ext takes --theta (and optionally --floor)")
-        return PIGExt(FlipTable.load(asset_paths(model, assets)["entropy"]), theta, window=window, floor=floor)
-    if rule == "confidence":
-        if nu is None or phi is not None or theta is not None or floor is not None:
-            raise ValueError("confidence takes --nu only")
-        return ConfidenceThreshold(nu)
-    raise ValueError(f"unknown rule {rule!r}; expected one of {RULES}")
+    """The rule object for one operating point (`window` applies to pig.ext only); no defaults are filled in."""
+    if rule not in RULES:
+        raise ValueError(f"unknown rule {rule!r}; expected one of {RULES}")
+    tables = load_tables(model, assets) if rule != "confidence" else {}
+    return _make_rule(tables, rule, phi=phi, theta=theta, floor=floor, nu=nu,
+                      window=window if rule == "pig.ext" else None)
 
 
 def cell_name(model, task, rule, geometry, phi=None, theta=None, floor=None, nu=None):
-    if rule == "pig-int":
+    if rule == "pig.int":
         knob = f"phi{phi:g}"
-    elif rule == "pig-ext":
+    elif rule == "pig.ext":
         knob = f"theta{theta:g}" + (f"_floor{floor:g}" if floor is not None else "")
     else:
         knob = f"nu{nu:g}"
@@ -125,9 +101,9 @@ def run_cell(decoder, model, task, rule, geometry, spec, problems, out_path, ass
     mean_ms = {key: float(np.mean([t[key] for t in timings])) for key in timings[0]} if timings else {}
     paths = asset_paths(model, assets)
     used = [paths["fde"]]
-    if spec["rule"] == "pig-int":
+    if spec["rule"] == "pig.int":
         used.append(paths["confidence"])
-    elif spec["rule"] == "pig-ext":
+    elif spec["rule"] == "pig.ext":
         used.append(paths["entropy"])
     result = dict(
         config=dict(model=model, model_id=decoder.model_id, revision=decoder.revision,

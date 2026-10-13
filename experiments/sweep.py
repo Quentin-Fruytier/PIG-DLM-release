@@ -1,7 +1,7 @@
 """Run every operating point of a sweep config in one process (the model is loaded once).
 
-    python -m pig.sweep configs/gsm8k_llada.json [--out results/llada/gsm8k] [--only block64]
-    python -m pig.sweep configs/humaneval_nemotron.json --list          # print the cells, run nothing
+    python -m experiments.sweep experiments/configs/gsm8k_llada.json [--out results/llada/gsm8k] [--only block64]
+    python -m experiments.sweep experiments/configs/humaneval_nemotron.json --list   # print the cells, run nothing
 
 Config format (JSON):
     {
@@ -10,8 +10,8 @@ Config format (JSON):
       "window": 16,
       "geometries": {"<name>": {"geometry": "<kind>", "block": B,
                                 "confidence": [nu, ...],
-                                "pig-int": [phi, ...],
-                                "pig-ext": [theta or [theta, floor], ...]}, ...}
+                                "pig.int": [phi, ...],
+                                "pig.ext": [theta or [theta, floor], ...]}, ...}
     }
 Cells whose result file already exists are skipped, so an interrupted sweep resumes where it stopped.
 """
@@ -19,8 +19,11 @@ import argparse
 import json
 from pathlib import Path
 
+from pig.assets import ASSETS
+from pig.loading import load_decoder, make_geometry
+
 from . import tasks as task_registry
-from .evaluate import ASSETS, cell_name, load_decoder, make_geometry, make_rule, run_cell
+from .evaluate import cell_name, make_rule, run_cell
 
 
 def expand(cfg):
@@ -31,12 +34,12 @@ def expand(cfg):
         for nu in g.get("confidence", []):
             cells.append((gname, g, dict(rule="confidence", phi=None, theta=None, floor=None,
                                          nu=float(nu), window=window)))
-        for phi in g.get("pig-int", []):
-            cells.append((gname, g, dict(rule="pig-int", phi=float(phi), theta=None, floor=None,
+        for phi in g.get("pig.int", []):
+            cells.append((gname, g, dict(rule="pig.int", phi=float(phi), theta=None, floor=None,
                                          nu=None, window=window)))
-        for point in g.get("pig-ext", []):
+        for point in g.get("pig.ext", []):
             theta, floor = (point if isinstance(point, list) else (point, None))
-            cells.append((gname, g, dict(rule="pig-ext", phi=None, theta=float(theta),
+            cells.append((gname, g, dict(rule="pig.ext", phi=None, theta=float(theta),
                                          floor=None if floor is None else float(floor),
                                          nu=None, window=window)))
     return cells

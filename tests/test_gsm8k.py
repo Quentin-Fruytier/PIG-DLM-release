@@ -1,7 +1,7 @@
 """The GSM8K prompts and graders on hand-made text (no dataset, no model)."""
 import pytest
 
-from pig import gsm8k
+from experiments.tasks import gsm8k
 
 PROBLEM = dict(task_id="gsm8k/0", question="Ann has 3 apples and buys 4 more. How many apples?",
                answer="She has 3 + 4 = <<3+4=7>>7 apples.\n#### 7")

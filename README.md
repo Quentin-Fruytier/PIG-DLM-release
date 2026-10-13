@@ -1,50 +1,79 @@
 # PIG: Parallel Inconsistency Guidance for Accelerating Diffusion Language Models
 
 Official code for the paper by Quentin Fruytier, Anton Xue, Sanjay Shakkottai and Sujay Sanghavi
-(The University of Texas at Austin). The release covers our two PIG decoders, **PIG.INT** and
-**PIG.EXT**, on **LLaDA-8B-Instruct** and **Nemotron-Labs-Diffusion-3B** (NVIDIA's instruct model, published
-under that plain id; the base model is `-3B-Base`), together with the evaluation harness (HumanEval and GSM8K,
-with the confidence-threshold baseline), the trained adapters and the calibration tables.
+(The University of Texas at Austin). PIG makes a diffusion language model commit more tokens per
+forward pass at the same accuracy. This repository is the library: the two PIG decoders, the trained
+adapters and calibration tables for **LLaDA-8B-Instruct** and **Nemotron-Labs-Diffusion-3B** (NVIDIA's
+instruct model, published under that plain id), and one `generate()` call that runs them. The
+benchmark harness that reproduces the paper's accuracy-throughput frontiers lives in
+[`experiments/`](experiments).
 
-> **Release in progress (October 2026).** The code, the two trained adapters and the four calibration
-> tables are in this repository (`assets/`) and mirrored on the Hugging Face Hub
-> ([LLaDA-8B-Instruct-PIG](https://huggingface.co/UT-IFML/LLaDA-8B-Instruct-PIG),
+> **Release in progress (October 2026).** Code, adapters and tables are here and mirrored on the
+> Hugging Face Hub ([LLaDA-8B-Instruct-PIG](https://huggingface.co/UT-IFML/LLaDA-8B-Instruct-PIG),
 > [Nemotron-Labs-Diffusion-3B-PIG](https://huggingface.co/UT-IFML/Nemotron-Labs-Diffusion-3B-PIG)).
 > Still to come: the arXiv link to the paper. The repository URL is stable.
 
-## The idea
+## Use PIG
 
-A diffusion language model (DLM) predicts every masked position in one forward pass, so it can commit
-several tokens per pass. Tokens committed together cannot condition on one another, however. The
-result can then differ from what the *same* model would write if it committed those positions one at
-a time, in the same order. We call that disagreement **sequential–parallel inconsistency** and
-treats it as the regret of parallel decoding. Deciding which positions to commit in parallel then
-becomes a budgeted selection problem: commit as many positions as possible while the predicted regret
-stays small.
+**From the Hub**, with only `transformers` and a GPU:
 
-Measuring the regret exactly would require the sequential replay that parallel decoding is meant to
-avoid. PIG predicts it instead, from the one forward pass the decoder already makes.
+```python
+from transformers import AutoModel
 
-- **Entropy Finite Differences Estimator (FDE).** A small adapter (about 2.2M parameters for LLaDA,
-  1.9M for Nemotron) on the frozen backbone. It reads the current pass and returns the full directed
-  matrix D̂, where D̂ᵢⱼ ≈ Hᵢ(x) − Hᵢ(x with j committed to its argmax) is the change in the
-  model's uncertainty at i caused by committing j. It adds well under 0.1% of a backbone forward
-  pass in arithmetic.
-- **Calibration tables.** Two binned tables give the probability that a parallel commit differs from
-  its sequential reference. p̂_ν(ν, μ) is indexed by the token's confidence ν, and p̂_H(H, μ) by its
-  entropy H. Both also depend on the aggregate influence of the more confident tokens decoded before it:
+model = AutoModel.from_pretrained("UT-IFML/LLaDA-8B-Instruct-PIG", trust_remote_code=True)   # or UT-IFML/Nemotron-Labs-Diffusion-3B-PIG
+out = model.generate("Write a Python function that returns the n-th Fibonacci number.", mode="pig.int", phi=0.1)
+print(out.text, out.forwards, out.tpf)
+```
 
-  μ̂ᵢ(S) = Σ_{j ∈ S, νⱼ > νᵢ} max(|D̂ᵢⱼ|, |D̂ⱼᵢ|).
+**From this repository**, after the installation below:
 
-Both are fitted once per backbone and only on training-split data. The adapter is trained on states
-from GSM8K, MATH, MBPP and OpenCoder problems, and the tables on sequential replays of GSM8K and
-OpenCoder states. Both are then reused unchanged across benchmarks, budgets and decoding geometries.
+```python
+import pig
 
-## The two decoders
+model = pig.load("llada")                                                 # or "nemotron"
+out = model.generate("Write a Python function that returns the n-th Fibonacci number.",
+                     mode="pig.ext", theta=0.25, floor=0.8, geometry="block", block=64)
+print(out.text, out.forwards, out.tpf)                                    # tokens per forward pass
+```
+
+Both calls run the same code (the Hub model vendors `pig/`) and take the same arguments:
+
+| argument | meaning | default |
+|---|---|---|
+| `mode` | `"pig.int"`, `"pig.ext"` or `"confidence"` (the Fast-dLLM confidence-threshold rule) | `"pig.int"` |
+| `phi` | PIG.INT budget: predicted mismatches allowed per round; larger is faster | `0.1` |
+| `theta` | PIG.EXT budget: regret that waiting one more pass may remove; larger is faster | `0.5` |
+| `floor` | PIG.EXT only: stop admitting candidates below this confidence (the paper's two slowest points use θ=0.125 with 0.9 and θ=0.25 with 0.8) | none |
+| `window` | PIG.EXT only: look-ahead size \|N(S)\| | `16` |
+| `nu` | `confidence` only: commit every candidate above this confidence | `0.9` |
+| `geometry`, `block` | which masked positions are candidates. LLaDA: `"full"` canvas, `"block"` B (semi-autoregressive blocks) or `"sliding"` B (the B leftmost masked positions). Nemotron: `"block"` B, `"sliding"` B or `"nested"` B (a B-wide band in a 2B window) | `"block"`, `32` |
+| `max_new_tokens` | LLaDA: the canvas length (the adapter was fitted at 256). Nemotron: the generation budget; decoding stops at end-of-sequence | `256` / `2048` |
+| `chat_template` | wrap a string prompt in the backbone's chat template | `True` |
+
+`generate()` returns the text, the token ids, the number of backbone forward passes and tokens per
+forward (TPF), the paper's throughput measure. Paper operating points: PIG.INT φ from 0.015 to 3,
+PIG.EXT θ from 0.125 to 3; smaller budgets are slower and more accurate.
+
+## How it works
+
+A diffusion language model predicts every masked position in one forward pass, so it can commit
+several tokens per pass. Tokens committed together cannot condition on one another, so the result can
+differ from what the same model would write committing those positions one at a time. We call that
+disagreement **sequential–parallel inconsistency** and treat it as the regret of parallel decoding:
+commit as many positions as possible while the predicted regret stays small. Measuring the regret
+exactly needs the sequential replay that parallel decoding is meant to avoid, so PIG predicts it from
+the one forward pass the decoder already makes, with two fitted-once components:
+
+- **Entropy Finite Differences Estimator (FDE).** A small adapter (2.2M parameters for LLaDA, 1.9M
+  for Nemotron, under 0.1% of a forward pass) on the frozen backbone. It returns the directed matrix
+  D̂, where D̂ᵢⱼ ≈ Hᵢ(x) − Hᵢ(x with j committed to its argmax) is the change in the model's
+  uncertainty at i caused by committing j.
+- **Calibration tables.** p̂_ν(ν, μ) and p̂_H(H, μ) give the probability that a parallel commit differs
+  from its sequential reference, indexed by the token's confidence ν or entropy H and by the aggregate
+  influence of the more confident tokens committed with it, μ̂ᵢ(S) = Σ_{j ∈ S, νⱼ > νᵢ} max(|D̂ᵢⱼ|, |D̂ⱼᵢ|).
 
 Each round runs one forward pass, gives every candidate position its argmax token, confidence νᵢ and
-entropy Hᵢ, and runs the adapter once. The rule then visits the candidates in decreasing confidence and
-commits a prefix of that order in parallel.
+entropy Hᵢ, runs the adapter once, and commits a prefix of the candidates in decreasing confidence:
 
 **PIG.INT(φ): single-round regret** (paper Algorithm 2). Keep the predicted number of mismatches inside
 the round below φ.
@@ -78,152 +107,69 @@ committed and the model is re-evaluated, since committing S is predicted to lowe
 max_{k∈S} D̂ᵢₖ. The two slowest operating points of the paper's PIG.EXT lane add a confidence floor:
 θ = 0.125 with ν ≥ 0.9, and θ = 0.25 with ν ≥ 0.8.
 
-Both rules are plain functions in [`pig/rules.py`](pig/rules.py). They work on any backend that
-supplies confidences, entropies and a D̂ matrix.
+## Extend it
 
-## Installation
+A rule is a function of one `Round` (`pig/rules.py`): `cand`, the eligible positions in ascending
+order; `conf` and `H`, the confidence and entropy at every position; `D`, the adapter's matrix. It
+returns the positions to commit. Anything with that signature plugs into `generate()`:
 
-LLaDA's remote code requires `transformers` 4.x, and Nemotron's requires ≥ 4.53, so use one
+```python
+from pig import Round, confidence_order
+
+def top_k(rnd: Round, k=4):                   # commit the k most confident candidates
+    return confidence_order(rnd.cand, rnd.conf)[:k]
+
+model = pig.load("llada")
+tokens, forwards, _ = model.decoder.generate(model.encode("prompt"), top_k, model.geometry("block", 64))
+```
+
+The pieces are independent: `pig/rules.py` (PIG.INT, PIG.EXT and the baseline as plain functions and
+callable classes), `pig/tables.py` (table lookup), `pig/fde/` (the adapters), `pig/llada.py` and
+`pig/nemotron.py` (the two decode loops, each exposing `chat_prompt`, `generate` and its geometry
+class), `pig/api.py` (`PIG`, `generate()` and the defaults) and `pig/loading.py` (`pig.load`).
+
+## Install
+
+LLaDA's remote code requires `transformers` 4.x and Nemotron's requires ≥ 4.53, so use one
 environment per model:
 
 ```bash
-# LLaDA-8B-Instruct
-python -m venv .venv-llada && source .venv-llada/bin/activate
-pip install torch --index-url https://download.pytorch.org/whl/cu128     # match your CUDA version
-pip install -r requirements/llada.txt && pip install -e .
+python -m venv .venv-llada && source .venv-llada/bin/activate           # LLaDA-8B-Instruct
+pip install torch --index-url https://download.pytorch.org/whl/cu128    # match your CUDA version
+pip install -r requirements/llada.txt -e .
 
-# Nemotron-Labs-Diffusion-3B
-python -m venv .venv-nemotron && source .venv-nemotron/bin/activate
+python -m venv .venv-nemotron && source .venv-nemotron/bin/activate     # Nemotron-Labs-Diffusion-3B
 pip install torch --index-url https://download.pytorch.org/whl/cu128
-pip install -r requirements/nemotron.txt && pip install -e .
+pip install -r requirements/nemotron.txt -e .
 ```
 
-The backbones are downloaded from the Hugging Face Hub at pinned revisions:
-`GSAI-ML/LLaDA-8B-Instruct@08b83a6f` and `nvidia/Nemotron-Labs-Diffusion-3B@0d51902d`. LLaDA needs
-a GPU with at least 24 GB of memory; Nemotron needs less.
+The backbones download from the Hub at pinned revisions (`GSAI-ML/LLaDA-8B-Instruct@08b83a6f`,
+`nvidia/Nemotron-Labs-Diffusion-3B@0d51902d`); LLaDA needs a GPU with at least 24 GB. The adapters
+and tables ship in [`assets/`](assets) (`fde.safetensors`, `flip_confidence.npz`, `flip_entropy.npz`
+per model, with `SHA256SUMS`) and are mirrored in the two Hub repositories, from which
+`pig.load` fetches them if `assets/` is missing.
 
-The adapters and tables ship in [`assets/`](assets):
-
-```
-assets/<model>/fde.safetensors        adapter weights (Entropy Finite Differences Estimator)
-assets/<model>/flip_confidence.npz    p̂_ν(ν, μ)   read by PIG.INT
-assets/<model>/flip_entropy.npz       p̂_H(H, μ)   read by PIG.EXT
-assets/SHA256SUMS
-```
-
-Here `<model>` is `llada` or `nemotron`. Every result file records the SHA-256 of the assets it used.
-
-The same six files are mirrored on the Hugging Face Hub, one repository per backbone, with model cards:
-[UT-IFML/LLaDA-8B-Instruct-PIG](https://huggingface.co/UT-IFML/LLaDA-8B-Instruct-PIG) and
-[UT-IFML/Nemotron-Labs-Diffusion-3B-PIG](https://huggingface.co/UT-IFML/Nemotron-Labs-Diffusion-3B-PIG).
-If `assets/<model>/` is missing or incomplete, `pig.assets.resolve` downloads the files from there into the
-`huggingface_hub` cache, so the code also runs from a checkout without `assets/`.
-
-## Quick start
-
-The easiest way to run PIG is the Hugging Face Hub model, which needs only `transformers` (and a GPU):
-
-```python
-from transformers import AutoModel
-
-model = AutoModel.from_pretrained("UT-IFML/LLaDA-8B-Instruct-PIG", trust_remote_code=True)   # or UT-IFML/Nemotron-Labs-Diffusion-3B-PIG
-out = model.generate("Write a Python function that returns the n-th Fibonacci number.", mode="pig.int", phi=0.1)
-print(out.text, out.forwards, out.tpf)       # mode="pig.ext", theta=..., floor=...  |  mode="confidence", nu=...
-```
-
-The Hub repositories are built from this package by `python -m hub.build` (see `hub/`): the wrapper's decoders,
-rules, tables and adapter are vendored verbatim from `pig/`, and `python -m hub.verify` checks on a GPU that the
-wrapper and this harness decode identically. What follows is the harness, which reproduces the paper's
-operating points.
-
-One operating point (`--task humaneval`, the default, runs all 164 problems; `--task gsm8k` runs the
-first 500 test problems, as in the paper):
+## Reproduce the paper's frontiers
 
 ```bash
-# LLaDA-8B-Instruct, HumanEval, PIG.INT with φ = 0.1, fixed 64-token blocks
-python -m pig.evaluate --task humaneval --model llada --rule pig-int --phi 0.1 \
-    --geometry block --block 64 --out results/llada/humaneval/llada_humaneval_block64_pig-int_phi0.1.json
-
-# Nemotron-Labs-Diffusion-3B, GSM8K, PIG.EXT with θ = 0.25 and a 0.8 confidence floor, fixed 32-token blocks
-python -m pig.evaluate --task gsm8k --model nemotron --rule pig-ext --theta 0.25 --floor 0.8 \
-    --geometry block --block 32 --out results/nemotron/gsm8k/nemotron_gsm8k_block32_pig-ext_theta0.25_floor0.8.json
-
-# the confidence-threshold baseline (the Fast-dLLM rule) at ν = 0.9
-python -m pig.evaluate --task gsm8k --model llada --rule confidence --nu 0.9 \
-    --geometry block --block 64 --out results/llada/gsm8k/llada_gsm8k_block64_confidence_nu0.9.json
+pip install -e ".[experiments]"
+python -m experiments.sweep experiments/configs/gsm8k_llada.json      # every operating point of a frontier
+python -m experiments.summarize results/llada/gsm8k                   # tables
+python -m experiments.plot results/llada/gsm8k --out gsm8k_llada.png  # accuracy vs TPF curves
 ```
 
-A whole frontier: the model is loaded once, and finished operating points are skipped, so an
-interrupted sweep resumes where it stopped.
+[`experiments/`](experiments) holds the HumanEval and GSM8K tasks with the paper's prompts and
+graders, the three lanes (Fast-dLLM, PIG.INT, PIG.EXT), and one config per task and model listing
+the paper's operating points. Its [README](experiments/README.md) states the protocol.
 
-```bash
-python -m pig.sweep configs/humaneval_llada.json                  # -> results/llada/humaneval/*.json
-python -m pig.sweep configs/gsm8k_llada.json --only block64 sliding64
-python -m pig.sweep configs/gsm8k_nemotron.json
-python -m pig.summarize results/llada/gsm8k results/nemotron/gsm8k   # markdown tables (--latex for LaTeX rows)
-```
-
-The four configs (`configs/<task>_<model>.json`) list the operating points of the paper's frontier
-tables for every decoding geometry: the confidence-threshold ladder, the PIG.INT φ ladder and the
-PIG.EXT θ ladder with its two floored slow points. Each result file holds every problem's completion
-and scores, the accuracy with its Wilson interval, the throughput, and the SHA-256 of the assets used.
-
-From Python:
-
-```python
-from pig import FlipTable, PIGExt, PIGInt
-from pig.llada import Geometry, LLaDADecoder
-
-decoder = LLaDADecoder("assets/llada/fde.safetensors")
-rule = PIGInt(FlipTable.load("assets/llada/flip_confidence.npz"), phi=0.1)
-# or: PIGExt(FlipTable.load("assets/llada/flip_entropy.npz"), theta=0.25, floor=0.8)
-
-prompt = decoder.chat_prompt("Write a Python function that returns the n-th Fibonacci number.")
-tokens, forwards, _ = decoder.generate(prompt, rule, Geometry("block", 64))
-print(decoder.tokenizer.decode(tokens, skip_special_tokens=True))
-print(f"{256 / forwards:.1f} tokens per forward")
-```
-
-## Evaluation protocol
-
-| | LLaDA-8B-Instruct | Nemotron-Labs-Diffusion-3B |
-|---|---|---|
-| HumanEval prompt | chat template; user turn = "Complete the following Python function. Return the complete function in a \`\`\`python code block." + problem prompt; 0-shot | chat template; user turn = "Complete the following Python function." + problem prompt; 0-shot |
-| GSM8K prompt | chat template; user turn = five fixed exemplars from the training split (seed 1234) in the `Question:`/`Answer:`/`####` format, then `Question: <q>` and `Answer:` | chat template; user turn = the question as is; 0-shot |
-| canvas | 256 tokens, always filled; no KV cache | up to 2048 tokens, stops at end of sequence; prefix KV cache |
-| candidate geometries | `full` canvas; `block` B (semi-autoregressive blocks); `sliding` B (the B leftmost masked positions) | `block` B (fixed slab); `sliding` B (a window holding B masked positions); `nested` B (a B-wide commit band in a window holding 2B masked positions) |
-| decoding | greedy (argmax); shots as above | greedy (argmax); 0-shot throughout |
-| throughput (TPF) | 256 / mean forward passes per problem | mean over problems of generated tokens / forward passes, counting the prompt pass and cache updates |
-| HumanEval grading | pass@1. A fenced block that defines the entry point is the whole program; otherwise the completion continues the prompt, cut at the HumanEval stop sequences. 10 s timeout | pass@1. The last fenced block that defines the entry point, prefixed with the prompt when needed. 15 s timeout |
-| GSM8K grading | lm-eval's two extractors on the generation cut at the stop sequences: flexible (the last number; the reported metric) and strict (the first `#### <number>` line); both are recorded | the same extractors; flexible is the reported metric |
-| problems | HumanEval: all 164; GSM8K: the first 500 of the test split | the same |
-
-Accuracies are reported with Wilson 95% intervals. Results shift slightly between GPU types, because
-the backbone's floating-point results differ across hardware.
-
-## Repository layout
+## Layout and tests
 
 ```
-pig/rules.py        PIG.INT and PIG.EXT selection rules
-pig/tables.py       calibration-table lookup
-pig/fde/            adapter architectures (LLaDA, Nemotron)
-pig/llada.py        LLaDA-8B-Instruct decoding backend
-pig/nemotron.py     Nemotron-Labs-Diffusion-3B decoding backend
-pig/humaneval.py    HumanEval prompts, graders and Wilson intervals
-pig/gsm8k.py        GSM8K prompts (5-shot LLaDA / 0-shot Nemotron) and extractors
-pig/tasks.py        the task registry (one interface for every benchmark)
-pig/evaluate.py     one operating point            (python -m pig.evaluate)
-pig/sweep.py        a grid of operating points     (python -m pig.sweep)
-hub/                the Hugging Face Hub wrapper and its build / verify / upload scripts
-pig/summarize.py    result tables                  (python -m pig.summarize)
-configs/            the paper's HumanEval and GSM8K operating points, per model
-tests/              unit tests (python -m pytest)
-```
-
-## Tests
-
-```bash
-python -m pytest     # CPU only: the rules against the paper's algorithms, tables, adapters, graders, the harness plumbing
+pig/            the library (rules, tables, adapters, decoders, generate(), loading)
+assets/         adapters and calibration tables
+experiments/    benchmark harness, configs, tables, plots
+hub/            build, verify and upload of the Hugging Face Hub repositories (vendors pig/)
+tests/          python -m pytest   (CPU only)
 ```
 
 ## License

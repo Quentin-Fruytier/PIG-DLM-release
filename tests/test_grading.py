@@ -1,5 +1,6 @@
 """The HumanEval graders on hand-made completions."""
-from pig.humaneval import build_program, grade_llada, grade_nemotron, run_program, wilson
+from experiments.stats import wilson
+from experiments.tasks.humaneval import build_program, grade_llada, grade_nemotron, run_program
 
 PROMPT = 'def add(a, b):\n    """Add."""\n'
 PROBLEM = dict(prompt=PROMPT, entry_point="add", test="def check(f):\n    assert f(1, 2) == 3\n")

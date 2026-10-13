@@ -13,11 +13,12 @@ dependencies = [
     "numpy",
     "torch",
     "transformers",
-    "datasets",
     "safetensors",
+    "huggingface_hub",
 ]
 
 [project.optional-dependencies]
+experiments = ["datasets", "matplotlib"]      # the benchmark harness in experiments/
 test = ["pytest"]
 
 [tool.setuptools.packages.find]
