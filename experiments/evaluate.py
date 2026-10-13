@@ -1,13 +1,13 @@
 """Run one operating point on a benchmark and write one result file.
 
     # LLaDA-8B-Instruct, HumanEval, PIG.INT with phi = 0.1, fixed 64-token blocks
-    python -m pig.evaluate --task humaneval --model llada --rule pig.int --phi 0.1 \
+    python -m experiments.evaluate --task humaneval --model llada --rule pig.int --phi 0.1 \
         --geometry block --block 64 --out results/llada/humaneval/llada_humaneval_block64_pig.int_phi0.1.json
     # Nemotron-Labs-Diffusion-3B, GSM8K, PIG.EXT with theta = 0.25 and a 0.8 confidence floor
-    python -m pig.evaluate --task gsm8k --model nemotron --rule pig.ext --theta 0.25 --floor 0.8 \
+    python -m experiments.evaluate --task gsm8k --model nemotron --rule pig.ext --theta 0.25 --floor 0.8 \
         --geometry block --block 32 --out results/nemotron/gsm8k/nemotron_gsm8k_block32_pig.ext_theta0.25_floor0.8.json
     # the confidence-threshold baseline (Fast-dLLM's rule) at nu = 0.9
-    python -m pig.evaluate --task gsm8k --model llada --rule confidence --nu 0.9 \
+    python -m experiments.evaluate --task gsm8k --model llada --rule confidence --nu 0.9 \
         --geometry block --block 64 --out results/llada/gsm8k/llada_gsm8k_block64_confidence_nu0.9.json
 
 A whole grid (the model is loaded once): python -m experiments.sweep experiments/configs/gsm8k_llada.json
@@ -64,7 +64,7 @@ def run_cell(decoder, model, task, rule, geometry, spec, problems, out_path, ass
              log_every=20):
     """Decode + grade every problem in `problems` on `task`; write and return the result dict.
 
-    task: a task name (see pig.tasks) or the task module itself.
+    task: a task name (see experiments/tasks) or the task module itself.
     spec: dict(rule=..., phi=..., theta=..., floor=..., nu=..., window=...) as passed to make_rule.
     """
     import torch
