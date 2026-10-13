@@ -447,6 +447,7 @@ class LLaDAConfig(PretrainedConfig):
             }
         )
         super().__init__(**all_kwargs)
+        self.use_cache = use_cache   # PIG: transformers 5.x no longer keeps use_cache on the base config
 
     @property
     def num_attention_heads(self):
@@ -461,5 +462,4 @@ class LLaDAConfig(PretrainedConfig):
         return self.d_model
 
 
-# Register the config class so that it is available for transformer pipelines, auto-loading etc.
-AutoConfig.register("llada", LLaDAConfig)
+# PIG: the upstream file registers LLaDAConfig with AutoConfig here; this copy does not (instantiated directly).

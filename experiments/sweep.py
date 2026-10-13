@@ -75,7 +75,7 @@ def main():
     print(f"{len(todo)} of {len(cells)} cells to run -> {out_dir}", flush=True)
     if not todo:
         return
-    n = task.N if args.n is None else args.n
+    n = task_registry.problem_count(task, args.model if hasattr(args, 'model') else model) if args.n is None else args.n
     problems = task.load_problems()[args.start:args.start + n]
     decoder = load_decoder(model, args.assets, args.device)
     for geometry, spec, path in todo:

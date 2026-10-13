@@ -7,7 +7,7 @@ import pytest
 from experiments import summarize, tasks
 from experiments.evaluate import RULES, cell_name, make_rule, run_cell
 from experiments.sweep import expand
-from experiments.tasks import gsm8k, humaneval
+from experiments.tasks import gsm8k, humaneval, math500, mbpp
 from pig.rules import ConfidenceThreshold, PIGExt, PIGInt
 
 
@@ -48,13 +48,14 @@ PROBLEMS = [dict(task_id=f"gsm8k/{i}", question=f"q{i}", answer="r\n#### 7") for
 
 
 def test_registry_exposes_one_interface():
-    assert tasks.TASKS == {"humaneval": humaneval, "gsm8k": gsm8k}
+    assert tasks.TASKS == {"humaneval": humaneval, "gsm8k": gsm8k, "math500": math500, "mbpp": mbpp}
     for name, mod in tasks.TASKS.items():
         assert mod.NAME == name and mod.PRIMARY in mod.METRICS
         assert set(mod.SHOTS) == {"llada", "nemotron"}
         for fn in ("load_problems", "prompt_text", "score"):
             assert callable(getattr(mod, fn))
     assert tasks.get("gsm8k") is gsm8k
+    assert tasks.problem_count(mbpp, "nemotron") == 499 and tasks.problem_count(gsm8k, "llada") == 500
     with pytest.raises(ValueError):
         tasks.get("mmlu")
 

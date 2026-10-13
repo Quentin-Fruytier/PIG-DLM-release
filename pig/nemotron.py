@@ -28,7 +28,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from .backbones.nemotron import NemotronLabsDiffusionModel
+from .backbones.nemotron import NemotronLabsDiffusionConfig, NemotronLabsDiffusionModel
 from .fde import NemotronFDE, load_fde
 from .rules import Round
 
@@ -72,15 +72,20 @@ class NemotronDecoder:
     family = "nemotron"
     geometry_cls = Window
 
-    def __init__(self, fde_path, device="cuda", model_id=MODEL_ID, revision=REVISION):
+    def __init__(self, fde_path, device="cuda", model_id=MODEL_ID, revision=REVISION, model=None, tokenizer=None):
+        """`model` and `tokenizer` may be passed already built (the Hub wrapper does); otherwise the backbone's
+        weights at the pinned revision are loaded into this package's copy of its modeling code."""
         from transformers import AutoTokenizer
 
         self.device = device
         self.model_id, self.revision = model_id, revision
-        self.tokenizer = AutoTokenizer.from_pretrained(model_id, revision=revision)
-        # the backbone's weights at the pinned revision, loaded into this package's copy of its modeling code
-        self.model = (NemotronLabsDiffusionModel.from_pretrained(model_id, revision=revision)
-                      .to(device).to(torch.bfloat16).eval())
+        if tokenizer is None:
+            tokenizer = AutoTokenizer.from_pretrained(model_id, revision=revision)
+        if model is None:
+            config = NemotronLabsDiffusionConfig.from_pretrained(model_id, revision=revision)
+            model = NemotronLabsDiffusionModel.from_pretrained(model_id, revision=revision, config=config)
+        self.tokenizer = tokenizer
+        self.model = model.to(device).to(torch.bfloat16).eval()
         for p in self.model.parameters():
             p.requires_grad_(False)
         self.mask_id = self.model.mask_token_id

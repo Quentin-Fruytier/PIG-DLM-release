@@ -154,7 +154,7 @@ def main():
     geometry = make_geometry(args.model, args.geometry, args.block)
     spec = dict(rule=args.rule, phi=args.phi, theta=args.theta, floor=args.floor, nu=args.nu, window=args.window)
     rule = make_rule(args.model, assets=args.assets, **spec)
-    n = task.N if args.n is None else args.n
+    n = task_registry.problem_count(task, args.model if hasattr(args, 'model') else model) if args.n is None else args.n
     problems = task.load_problems()[args.start:args.start + n]
     decoder = load_decoder(args.model, args.assets, args.device)
     run_cell(decoder, args.model, task, rule, geometry, spec, problems, Path(args.out), assets=args.assets)

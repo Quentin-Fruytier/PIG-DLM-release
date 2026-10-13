@@ -23,7 +23,7 @@ from dataclasses import dataclass
 import numpy as np
 import torch
 
-from .backbones.llada import LLaDAModelLM
+from .backbones.llada import LLaDAConfig, LLaDAModelLM
 from .fde import LLaDAFDE, load_fde
 from .rules import Round
 
@@ -94,14 +94,20 @@ class LLaDADecoder:
     family = "llada"
     geometry_cls = Geometry
 
-    def __init__(self, fde_path, device="cuda", model_id=MODEL_ID, revision=REVISION):
+    def __init__(self, fde_path, device="cuda", model_id=MODEL_ID, revision=REVISION, model=None, tokenizer=None):
+        """`model` and `tokenizer` may be passed already built (the Hub wrapper does); otherwise the backbone's
+        weights at the pinned revision are loaded into this package's copy of its modeling code."""
         from transformers import AutoTokenizer
 
         self.device = device
         self.model_id, self.revision = model_id, revision
-        self.tokenizer = AutoTokenizer.from_pretrained(model_id, revision=revision)
-        # the backbone's weights at the pinned revision, loaded into this package's copy of its modeling code
-        self.model = LLaDAModelLM.from_pretrained(model_id, revision=revision, dtype=torch.bfloat16).to(device).eval()
+        if tokenizer is None:
+            tokenizer = AutoTokenizer.from_pretrained(model_id, revision=revision)
+        if model is None:
+            config = LLaDAConfig.from_pretrained(model_id, revision=revision)
+            model = LLaDAModelLM.from_pretrained(model_id, revision=revision, config=config, dtype=torch.bfloat16)
+        self.tokenizer = tokenizer
+        self.model = model.to(device).eval()
         self._final = _capture_final_attention(self.model)
         self._hidden = {}
         self.head = self.model.get_output_embeddings()
@@ -110,8 +116,8 @@ class LLaDADecoder:
         self.fde = load_fde(LLaDAFDE, fde_path, device)   # a path, or an already-built LLaDAFDE
 
     def chat_prompt(self, text):
-        return self.tokenizer.apply_chat_template([{"role": "user", "content": text}],
-                                                  add_generation_prompt=True, tokenize=True)
+        return self.tokenizer.apply_chat_template([{"role": "user", "content": text}], add_generation_prompt=True,
+                                                  tokenize=True, return_dict=False)   # a list of ids on transformers 4.x and 5.x
 
     @torch.no_grad()
     def _read(self, cur, lo, hi):
