@@ -11,6 +11,9 @@ is X" span if present, else the last \\boxed{...} (strict), else the last inline
 number (flexible only). Prediction and gold are Minerva-normalised and compared by string, then by sympy
 (difference simplifies to zero). Gold is the normalised `answer` field. The strict score is the primary
 metric for LLaDA (boxed compliance is near 100%); both are recorded.
+
+The extractor is the one the paper's numbers were produced with, kept verbatim: a "Final Answer" span that
+itself contains \\boxed{...} is not unwrapped, so such an answer scores 0 even when correct.
 """
 import re
 
