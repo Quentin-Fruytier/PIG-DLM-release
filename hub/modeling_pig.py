@@ -6,12 +6,12 @@
                          mode="pig.int", phi=0.1)
     print(out.text, out.forwards, out.tpf)
 
-What from_pretrained loads: the adapter (model.safetensors) and the two calibration tables from this
-repository, then the backbone from its own repository at the pinned revision (config.backbone). The
-backbone's weights are never stored here. generate() is the code repository's `pig.api.PIG.generate`:
+What from_pretrained loads: the adapter and the two calibration tables (both in model.safetensors)
+from this repository, then the backbone from its own repository at the pinned revision (config.backbone).
+The backbone's weights are never stored here. generate() is the code repository's `pig.api.PIG.generate`:
 PIG.INT (mode="pig.int", budget phi), PIG.EXT (mode="pig.ext", budget theta, optional confidence floor)
 or the confidence-threshold baseline (mode="confidence", threshold nu). The decoder, rules, tables,
-adapter and that interface in the sibling modules are vendored verbatim from the code repository
+adapter and that interface are the code repository's modules, concatenated verbatim into this file
 (https://github.com/Quentin-Fruytier/PIG-DLM-release), so the two ways of loading PIG decode identically.
 """
 import torch
@@ -25,11 +25,24 @@ from .fde import PIGFDE
 from .tables import FlipTable
 
 
+def load_tables(path, axes=("confidence", "entropy")):
+    """The calibration tables stored in model.safetensors under keys tables.<axis>.<field>."""
+    from safetensors import safe_open
+
+    tables = {}
+    with safe_open(str(path), framework="np") as f:
+        for axis in axes:
+            get = lambda key: f.get_tensor(f"tables.{axis}.{key}")
+            tables[axis] = FlipTable(get("x_edges"), get("mu_edges"), get("rates"), axis,
+                                     rows=get("rows"), flips=get("flips"))
+    return tables
+
+
 class PIGModel(PreTrainedModel):
     config_class = PIGConfig
     base_model_prefix = "pig"
     supports_gradient_checkpointing = False
-    _keys_to_ignore_on_load_unexpected = [r"^backbone\."]
+    _keys_to_ignore_on_load_unexpected = [r"^backbone\.", r"^tables\."]   # tables are read by hand below
 
     def __init__(self, config):
         super().__init__(config)
@@ -54,8 +67,8 @@ class PIGModel(PreTrainedModel):
         model = super().from_pretrained(pretrained_model_name_or_path, *model_args, **kwargs)
         hub = {k: kwargs[k] for k in ("cache_dir", "revision", "token", "subfolder", "local_files_only",
                                       "force_download", "proxies") if k in kwargs}
-        for axis, fname in model.config.tables.items():
-            model.tables[axis] = FlipTable.load(cached_file(pretrained_model_name_or_path, fname, **hub))
+        model.tables = load_tables(cached_file(pretrained_model_name_or_path, "model.safetensors", **hub),
+                                   model.config.tables)
         if load_backbone:
             model.attach_backbone(device=device)
         return model

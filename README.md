@@ -168,8 +168,9 @@ the paper's operating points. Its [README](experiments/README.md) states the pro
 pig/            the library (rules, tables, adapters, decoders, generate(), loading)
 assets/         adapters and calibration tables
 experiments/    benchmark harness, configs, tables, plots
-hub/            build, verify and upload of the Hugging Face Hub repositories (vendors pig/)
+hub/            build, verify and upload of the Hugging Face Hub repositories (one modeling file built from pig/)
 tests/          python -m pytest   (CPU only)
+AGENTS.md       the same map, written for tools
 ```
 
 ## License

@@ -1,15 +1,12 @@
 """Configuration of a PIG Hub model: which backbone the adapter was fitted to, and the decoding defaults.
 
-A PIG repository on the Hugging Face Hub holds the Entropy Finite Differences Estimator (the adapter,
-model.safetensors), the two calibration tables (flip_confidence.npz, flip_entropy.npz) and this code.
-The backbone itself is loaded from its own repository at the pinned revision.
+A PIG repository on the Hugging Face Hub holds model.safetensors (the Entropy Finite Differences
+Estimator, keys fde.*, and the two calibration tables, keys tables.<axis>.*), this config and one
+modeling file. The backbone itself is loaded from its own repository at the pinned revision.
 """
 from transformers import PretrainedConfig
 
-try:
-    from .api import DEFAULTS, FAMILIES        # inside a Hub repository: api.py is vendored next to this file
-except ImportError:
-    from pig.api import DEFAULTS, FAMILIES     # inside the code repository
+from pig.api import DEFAULTS, FAMILIES   # hub.build replaces this line with the literal values
 
 
 class PIGConfig(PretrainedConfig):
@@ -24,5 +21,5 @@ class PIGConfig(PretrainedConfig):
         self.backbone_revision = backbone_revision
         self.defaults = dict(DEFAULTS[family], **(defaults or {}))
         self.adapter = dict(adapter or {})      # provenance: parameters, epoch, validation correlation
-        self.tables = dict(tables or {"confidence": "flip_confidence.npz", "entropy": "flip_entropy.npz"})
+        self.tables = list(tables or ["confidence", "entropy"])   # table axes stored in model.safetensors
         super().__init__(**kwargs)

@@ -1,14 +1,13 @@
-"""The Hub build: the wrapper must load, on the CPU and without a backbone, exactly the adapter and
-tables the harness uses, and its vendored modules must be the package's."""
+"""The Hub build: one modeling file that is the package's code section by section, one weights file
+holding the adapter and the tables, and a wrapper that loads them without a backbone on the CPU."""
+import ast
 import json
-import os
-from pathlib import Path
 
 import numpy as np
 import pytest
 import torch
 
-from hub.build import ASSETS, REPOS, build
+from hub.build import ASSETS, REPOS, build, sections, split_module
 
 pytestmark = pytest.mark.filterwarnings("ignore::UserWarning", "ignore::FutureWarning")
 transformers = pytest.importorskip("transformers")
@@ -21,38 +20,50 @@ def built(request, tmp_path_factory):
     return request.param, build(request.param, out)
 
 
-def test_layout(built):
+def test_layout_is_the_standard_shape(built):
     fam, d = built
-    names = {p.name for p in d.iterdir()}
-    assert {"config.json", "model.safetensors", "flip_confidence.npz", "flip_entropy.npz", "configuration_pig.py",
-            "modeling_pig.py", "rules.py", "tables.py", "api.py", "fde.py", "decoder.py"} <= names
+    assert {p.name for p in d.iterdir()} == {"README.md", "AGENTS.md", "config.json", "configuration_pig.py",
+                                             "modeling_pig.py", "model.safetensors"}
     cfg = json.loads((d / "config.json").read_text())
     assert cfg["family"] == fam and cfg["auto_map"]["AutoModel"] == "modeling_pig.PIGModel"
-    assert cfg["backbone"] and cfg["backbone_revision"]
+    assert cfg["backbone"] and cfg["backbone_revision"] and cfg["tables"] == ["confidence", "entropy"]
+    assert set(cfg["table_provenance"]) == {"confidence", "entropy"}
+    from pig.api import DEFAULTS
+    assert cfg["defaults"] == DEFAULTS[fam]
+    assert "from ." not in (d / "configuration_pig.py").read_text()        # nothing for the dynamic loader to chase
 
 
-def test_vendored_modules_are_the_package(built):
+def test_modeling_file_is_the_package_section_by_section(built):
     fam, d = built
-    for name, src in (("rules.py", "pig/rules.py"), ("tables.py", "pig/tables.py"), ("api.py", "pig/api.py"),
-                      ("decoder.py", f"pig/{fam}.py")):
-        body = "".join(ln for ln in (d / name).read_text().splitlines(keepends=True) if not ln.startswith("# Vendored")
-                       and not ln.startswith("# Do not edit"))
-        assert body.startswith((ASSETS.parent / src).read_text()), f"{name} is not {src}"
-    fde = (d / "fde.py").read_text()
-    for src in ("pig/fde/common.py", f"pig/fde/{fam}.py"):
-        for line in (ASSETS.parent / src).read_text().splitlines():
-            if line.startswith("from .common import"):
-                continue
-            assert line in fde, f"{src}: line missing from fde.py: {line[:60]!r}"
+    text = (d / "modeling_pig.py").read_text()
+    ast.parse(text)
+    present = set(ln.rstrip() for ln in text.splitlines())
+    for title, files in sections(fam):
+        assert f"# {title}" in text
+        for f in files:
+            if ":" in f:
+                continue                                           # load_fde is checked by test_wrapper below
+            _, _, body = split_module((ASSETS.parent / f).read_text())
+            for line in body.splitlines():
+                if line.strip() and not line.lstrip().startswith("#"):
+                    assert line.rstrip() in present, f"{f}: line missing from modeling_pig.py: {line[:70]!r}"
+    for alias in ("PIGFDE = ", f"FAMILY = {fam!r}", "PIGDecoder = ", "PIGGeometry = ", "PIGOutput = Output"):
+        assert alias in text
 
 
-def test_adapter_checkpoint(built):
+def test_weights_file_holds_the_adapter_and_the_tables(built):
     fam, d = built
     from safetensors.torch import load_file
     ours = load_file(str(d / "model.safetensors"))
     ref = load_file(str(ASSETS / fam / "fde.safetensors"))
-    assert set(ours) == {f"fde.{k}" for k in ref}
-    assert all(torch.equal(ours[f"fde.{k}"], v) for k, v in ref.items())
+    fde = {k: v for k, v in ours.items() if k.startswith("fde.")}
+    assert set(fde) == {f"fde.{k}" for k in ref} and all(torch.equal(fde[f"fde.{k}"], v) for k, v in ref.items())
+    for axis, t in (("confidence", "flip_confidence.npz"), ("entropy", "flip_entropy.npz")):
+        z = np.load(ASSETS / fam / t, allow_pickle=False)
+        for key in ("x_edges", "mu_edges", "rates", "rows", "flips"):
+            assert np.array_equal(ours[f"tables.{axis}.{key}"].numpy(), z[key]), (axis, key)
+    assert set(ours) == set(fde) | {f"tables.{a}.{k}" for a in ("confidence", "entropy")
+                                    for k in ("x_edges", "mu_edges", "rates", "rows", "flips")}
 
 
 def test_wrapper_loads_without_backbone(built):
@@ -66,6 +77,7 @@ def test_wrapper_loads_without_backbone(built):
     for axis, t in (("confidence", "flip_confidence.npz"), ("entropy", "flip_entropy.npz")):
         z = np.load(ASSETS / fam / t, allow_pickle=False)
         assert np.array_equal(model.tables[axis].rates, z["rates"]) and model.tables[axis].axis == axis
+        assert model.tables[axis](0.5, 0.1) == pytest.approx(float(z["rates"][np.searchsorted(z["x_edges"], 0.5, "right") - 1, 0]))
     assert model.backbone is None and model.tokenizer is None
     with pytest.raises(RuntimeError, match="no backbone"):
         model.generate("hello")
