@@ -1,0 +1,9 @@
+# One environment for both models. Install torch for your CUDA version first, e.g.
+#   pip install torch --index-url https://download.pytorch.org/whl/cu128
+# then: pip install -r requirements.txt -e .
+transformers>=5.19,<6
+safetensors
+numpy
+huggingface_hub
+accelerate
+sentencepiece

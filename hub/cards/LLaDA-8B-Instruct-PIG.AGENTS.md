@@ -6,28 +6,30 @@ https://github.com/Quentin-Fruytier/PIG-DLM-release (library `pig/`, harness `ex
 ## Identity
 
 - Repository: `UT-IFML/LLaDA-8B-Instruct-PIG`; license MIT (files here); family `llada`.
-- Backbone: `GSAI-ML/LLaDA-8B-Instruct` at revision `08b83a6feb34df1a6011b80c3c00c7563e963b07`, loaded from its own repository at runtime; not redistributed here.
+- Backbone: `GSAI-ML/LLaDA-8B-Instruct` at revision `08b83a6feb34df1a6011b80c3c00c7563e963b07`; its weights, tokenizer and modeling code are copied into this repository (NOTICE.md).
 - Paper: PIG: Parallel Inconsistency Guidance for Accelerating Diffusion Language Models (Fruytier, Xue, Shakkottai, Sanghavi, 2026); arXiv identifier to follow.
-- Environment: `transformers==4.49.0` (LLaDA's remote code requires 4.x; 5.x does not load it), `torch` (tested 2.11+cu128), `safetensors`, `numpy`; a CUDA GPU with 24 GB; about a minute to load.
+- Environment: `transformers>=5.19` (one environment serves both PIG models), `torch` (tested 2.11+cu128), `safetensors`, `numpy`; a CUDA GPU with 24 GB; about a minute to load.
 
 ## Files
 
 | file | contents |
 |---|---|
-| `model.safetensors` | the adapter (55 tensors, 2,165,527 parameters, fp32, keys `fde.*`; header metadata `epoch`, `val_edge_corr`) and the two calibration tables (keys `tables.<axis>.<field>` for axis in `confidence`, `entropy` and field in `x_edges`, `mu_edges`, `rates`, `rows`, `flips`) |
-| `config.json` | `family`, `backbone`, `backbone_revision`, `defaults` (the `generate` defaults), `tables` (the axes stored in the weights), `adapter` and `table_provenance` (sources, counts, package commit), `auto_map` |
+| `model-0000i-of-0000n.safetensors`, `model.safetensors.index.json` | one state dict: the backbone (keys `backbone.*`, bf16, copied tensor for tensor from the upstream revision), the adapter (55 tensors, 2,165,527 parameters, fp32, keys `fde.*`) and the two calibration tables (keys `tables.<axis>.<field>` for axis in `confidence`, `entropy` and field in `x_edges`, `mu_edges`, `rates`, `rows`, `flips`, in the last shard) |
+| `config.json` | `family`, `backbone` and `backbone_revision` (provenance), `backbone_config` (the backbone's own config), `defaults` (the `generate` defaults), `tables` (the axes stored in the weights), `adapter` and `table_provenance` (sources, counts, package commit), `auto_map`, `dtype` |
+| `configuration_llada.py`, `modeling_llada.py` | the backbone's modeling code, copied from the upstream revision with the changes marked `# PIG:` |
+| tokenizer files, `NOTICE.md` | the backbone's tokenizer; provenance and licences |
 | `configuration_pig.py` | `PIGConfig(PretrainedConfig)` |
 | `modeling_pig.py` | one file, built by `python -m hub.build` from the code repository: sections `pig/rules.py` (selection rules), `pig/tables.py` (`FlipTable`), `pig/fde/*` (the adapter, `PIGFDE`), `pig/llada.py` (the decode loop, `PIGDecoder`, `PIGGeometry`), `pig/api.py` (`PIG`, `Output`, `make_rule`, `DEFAULTS`) and the wrapper `PIGModel` |
 
 ## API
 
 ```python
-model = AutoModel.from_pretrained("UT-IFML/LLaDA-8B-Instruct-PIG", trust_remote_code=True, device=None, load_backbone=True)
+model = AutoModel.from_pretrained("UT-IFML/LLaDA-8B-Instruct-PIG", trust_remote_code=True, device=None, attach=True)
 out = model.generate(prompt, mode=None, phi=None, theta=None, floor=None, nu=None, window=None,
                      geometry=None, block=None, max_new_tokens=None, chat_template=True)
 ```
 
-- `from_pretrained` loads the adapter and tables, then the backbone onto `device` (default: first CUDA device, else CPU). `load_backbone=False` defers it; `model.attach_backbone(device)` loads it later. Hub kwargs (`cache_dir`, `revision`, `token`, ...) pass through.
+- `from_pretrained` loads the whole model (backbone, adapter, tables) and moves it to `device` (default: first CUDA device, else CPU), binding the decode loop to the tokenizer shipped here. `attach=False` skips the move and the binding; `model.attach(device)` does them later. Hub kwargs (`cache_dir`, `revision`, `token`, ...) pass through. The adapter stays fp32 whatever dtype the backbone takes.
 - `prompt`: a string (wrapped in the backbone's chat template unless `chat_template=False`) or an iterable of token ids.
 - `mode`: `"pig.int"` | `"pig.ext"` | `"confidence"`. Knobs are validated per mode and raise `ValueError` otherwise: `pig.int` takes `phi` only; `pig.ext` takes `theta` and optionally `floor` and `window`; `confidence` takes `nu` only. Unset knobs come from `config.defaults`.
 - `phi` (float > 0): PIG.INT single-round regret budget, the predicted number of sequential-parallel mismatches allowed per round. Paper ladder 0.015 to 3. Default 0.1.
@@ -38,7 +40,7 @@ out = model.generate(prompt, mode=None, phi=None, theta=None, floor=None, nu=Non
 - `geometry` (`"full"` | `"block"` | `"sliding"`), `block` (int): the candidate geometry. Default `"block"`, 32.
 - `max_new_tokens`: decodes a 256-token canvas after the prompt, always filled (TPF = 256 / forward passes).
 - Returns `PIGOutput(text, tokens, forwards, tpf, mode, params, ms_per_round)`.
-- Also: `model.rule(mode, ...)` (the rule object without decoding), `model.encode(prompt)`, `model.backbone`, `model.tokenizer`, `model.fde` (the adapter module), `model.tables` (`{"confidence": FlipTable, "entropy": FlipTable}`).
+- Also: `model.rule(mode, ...)` (the rule object without decoding), `model.encode(prompt)`, `model.backbone`, `model.tokenizer`, `model.fde` (the adapter module), `model.backbone` (the backbone module), `model.tables` (`{"confidence": FlipTable, "entropy": FlipTable}`).
 - Decoding is greedy (argmax) throughout; the reference the rules match is greedy sequential decoding. The wrapper and the code repository's `pig.load("llada")` decode identically (checked token for token under all three modes by `python -m hub.verify`).
 
 ## What the adapter predicts

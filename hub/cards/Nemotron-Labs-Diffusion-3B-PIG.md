@@ -21,8 +21,8 @@ tags:
 **Parallel Inconsistency Guidance (PIG)** lets a diffusion language model commit more tokens per forward pass
 at the same accuracy. This repository holds what PIG adds to
 [Nemotron-Labs-Diffusion-3B](https://huggingface.co/nvidia/Nemotron-Labs-Diffusion-3B), NVIDIA's **instruct**
-model (published under that plain id; the base model is `-3B-Base` and is not what this is fitted to): a
-1.9M-parameter adapter that predicts how committing one masked position of the current block would change the
+model (published under that plain id; the base model is `-3B-Base` and is not what this is fitted to): the
+backbone itself with a 1.9M-parameter adapter that predicts how committing one masked position of the current block would change the
 model's uncertainty at every other, two calibration tables that turn that into the probability of a parallel
 commit disagreeing with sequential decoding, and a `transformers` wrapper that loads the backbone and runs the
 PIG.INT and PIG.EXT decoders.
@@ -34,10 +34,10 @@ Anton Xue, Sanjay Shakkottai, Sujay Sanghavi (UT Austin), 2026; arXiv link to fo
 
 ## Use
 
-Needs a CUDA GPU and `transformers==4.56.2` (the model's own remote code requires 4.53 or later), plus
-`safetensors`, `numpy` and `accelerate`. The code ships here and loads with `trust_remote_code=True`; the
-backbone (6 GB) is downloaded from its own repository at a pinned revision on the first call, under NVIDIA's
-licence terms.
+Needs a CUDA GPU with 8 GB of memory and `transformers` 5.x (plus `safetensors`, `numpy`, `accelerate`). This
+repository is the whole model: the backbone's weights and modeling code (copied from Nemotron-Labs-Diffusion-3B
+at a pinned revision, under NVIDIA's licence terms), the PIG adapter and the calibration tables. The code
+loads with `trust_remote_code=True`; the first call downloads 7 GB.
 
 ```python
 from transformers import AutoModel
@@ -72,11 +72,11 @@ What the adapter predicts, how it and the tables were fitted, their held-out qua
 
 The files in this repository are released under the MIT License.
 
-They were fitted on the hidden states and predictive distributions of Nemotron-Labs-Diffusion-3B, which is
-released by NVIDIA Corporation under the
+The backbone weights, tokenizer and modeling code are Nemotron-Labs-Diffusion-3B's, released by NVIDIA
+Corporation under the
 [NVIDIA Nemotron Open Model License](https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-nemotron-open-model-license/)
-and is not redistributed here; use of the backbone is governed by that licence. NVIDIA's names and marks are
-used only to identify the model.
+and copied here under its terms (see [NOTICE.md](NOTICE.md)); use of the backbone is governed by that licence.
+NVIDIA's names and marks are used only to identify the model.
 
 ## Citation
 

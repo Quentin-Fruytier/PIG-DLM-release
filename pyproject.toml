@@ -12,13 +12,13 @@ requires-python = ">=3.10"
 dependencies = [
     "numpy",
     "torch",
-    "transformers",
+    "transformers>=5.19,<6",
     "safetensors",
     "huggingface_hub",
 ]
 
 [project.optional-dependencies]
-experiments = ["datasets", "matplotlib"]      # the benchmark harness in experiments/
+experiments = ["datasets", "matplotlib", "sympy", "antlr4-python3-runtime"]   # the benchmark harness in experiments/
 test = ["pytest"]
 
 [tool.setuptools.packages.find]

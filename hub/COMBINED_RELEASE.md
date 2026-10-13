@@ -28,6 +28,12 @@ environment for both models.
 In the code repository the ported backbones live in `pig/backbones/<family>/` and are the single source for
 both the library (`pig.load`) and the Hub build, like the rest of `pig/` today.
 
+## Status (2026-10-13)
+
+Steps 0-4 done on this branch; the backbones' code lives in `pig/backbones/`, parity vs the upstream remote code is
+exact (hub/parity.py, 16 prompts per model), the full build is in /ssd1/qdf76/pig_hub_dist, and the four-dataset
+consistency campaign (hub/consistency.py) is the remaining check before upload.
+
 ## Steps
 
 0. Probe: load both upstream remote codes under transformers 5.x and run the three modes; record what breaks.

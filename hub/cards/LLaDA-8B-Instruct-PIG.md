@@ -20,7 +20,7 @@ tags:
 
 **Parallel Inconsistency Guidance (PIG)** lets a diffusion language model commit more tokens per forward pass
 at the same accuracy. This repository holds what PIG adds to
-[LLaDA-8B-Instruct](https://huggingface.co/GSAI-ML/LLaDA-8B-Instruct): a 2.2M-parameter adapter that predicts
+[LLaDA-8B-Instruct](https://huggingface.co/GSAI-ML/LLaDA-8B-Instruct): the backbone itself with a 2.2M-parameter adapter that predicts
 how committing one masked position would change the model's uncertainty at every other, two calibration
 tables that turn that into the probability of a parallel commit disagreeing with sequential decoding, and a
 `transformers` wrapper that loads the backbone and runs the PIG.INT and PIG.EXT decoders.
@@ -32,9 +32,10 @@ Anton Xue, Sanjay Shakkottai, Sujay Sanghavi (UT Austin), 2026; arXiv link to fo
 
 ## Use
 
-Needs a CUDA GPU with 24 GB of memory and `transformers==4.49.0` (LLaDA's own remote code requires the 4.x
-line), plus `safetensors` and `numpy`. The code ships here and loads with `trust_remote_code=True`; the
-backbone (16 GB) is downloaded from its own repository at a pinned revision on the first call.
+Needs a CUDA GPU with 24 GB of memory and `transformers` 5.x (plus `safetensors`, `numpy`). This repository
+is the whole model: the backbone's weights and modeling code (copied from LLaDA-8B-Instruct at a pinned
+revision), the PIG adapter and the calibration tables. The code loads with `trust_remote_code=True`;
+the first call downloads 16 GB.
 
 ```python
 from transformers import AutoModel
@@ -65,8 +66,9 @@ What the adapter predicts, how it and the tables were fitted, their held-out qua
 
 ## License
 
-The files in this repository are released under the MIT License. LLaDA-8B-Instruct is released by its authors
-under the MIT License and is not redistributed here.
+The PIG adapter, the calibration tables and the wrapper are released under the MIT License. The backbone
+weights, tokenizer and modeling code are LLaDA-8B-Instruct's, released by its authors under the MIT License
+and copied here (see [NOTICE.md](NOTICE.md)).
 
 ## Citation
 

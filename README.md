@@ -15,7 +15,8 @@ benchmark harness that reproduces the paper's accuracy-throughput frontiers live
 
 ## Use PIG
 
-**From the Hub**, with only `transformers` and a GPU:
+**From the Hub**, with only `transformers` (5.x) and a GPU; each repository is one model holding the
+backbone, the adapter and the tables:
 
 ```python
 from transformers import AutoModel
@@ -130,24 +131,20 @@ class), `pig/api.py` (`PIG`, `generate()` and the defaults) and `pig/loading.py`
 
 ## Install
 
-LLaDA's remote code requires `transformers` 4.x and Nemotron's requires ≥ 4.53, so use one
-environment per model:
+One environment serves both models (`transformers` 5.x; the backbones' modeling code is carried in
+[`pig/backbones/`](pig/backbones), so nothing depends on the upstream repositories' remote code):
 
 ```bash
-python -m venv .venv-llada && source .venv-llada/bin/activate           # LLaDA-8B-Instruct
+python -m venv .venv && source .venv/bin/activate
 pip install torch --index-url https://download.pytorch.org/whl/cu128    # match your CUDA version
-pip install -r requirements/llada.txt -e .
-
-python -m venv .venv-nemotron && source .venv-nemotron/bin/activate     # Nemotron-Labs-Diffusion-3B
-pip install torch --index-url https://download.pytorch.org/whl/cu128
-pip install -r requirements/nemotron.txt -e .
+pip install -r requirements.txt -e .
 ```
 
-The backbones download from the Hub at pinned revisions (`GSAI-ML/LLaDA-8B-Instruct@08b83a6f`,
-`nvidia/Nemotron-Labs-Diffusion-3B@0d51902d`); LLaDA needs a GPU with at least 24 GB. The adapters
-and tables ship in [`assets/`](assets) (`fde.safetensors`, `flip_confidence.npz`, `flip_entropy.npz`
-per model, with `SHA256SUMS`) and are mirrored in the two Hub repositories, from which
-`pig.load` fetches them if `assets/` is missing.
+`pig.load` fetches the backbone weights at pinned revisions (`GSAI-ML/LLaDA-8B-Instruct@08b83a6f`,
+`nvidia/Nemotron-Labs-Diffusion-3B@0d51902d`) into that code; LLaDA needs a GPU with at least 24 GB.
+The adapters and tables ship in [`assets/`](assets) (`fde.safetensors`, `flip_confidence.npz`,
+`flip_entropy.npz` per model, with `SHA256SUMS`). The two Hub repositories carry the backbone weights,
+the adapter and the tables together, so `AutoModel.from_pretrained` needs nothing else.
 
 ## Reproduce the paper's frontiers
 
@@ -158,14 +155,14 @@ python -m experiments.summarize results/llada/gsm8k                   # tables
 python -m experiments.plot results/llada/gsm8k --out gsm8k_llada.png  # accuracy vs TPF curves
 ```
 
-[`experiments/`](experiments) holds the HumanEval and GSM8K tasks with the paper's prompts and
-graders, the three lanes (Fast-dLLM, PIG.INT, PIG.EXT), and one config per task and model listing
-the paper's operating points. Its [README](experiments/README.md) states the protocol.
+[`experiments/`](experiments) holds the four benchmarks (HumanEval, GSM8K, MATH-500, MBPP) with the
+paper's prompts and graders, the three lanes (Fast-dLLM, PIG.INT, PIG.EXT), and one config per task and
+model listing the paper's operating points. Its [README](experiments/README.md) states the protocol.
 
 ## Layout and tests
 
 ```
-pig/            the library (rules, tables, adapters, decoders, generate(), loading)
+pig/            the library (rules, tables, adapters, backbones, decoders, generate(), loading)
 assets/         adapters and calibration tables
 experiments/    benchmark harness, configs, tables, plots
 hub/            build, verify and upload of the Hugging Face Hub repositories (one modeling file built from pig/)
