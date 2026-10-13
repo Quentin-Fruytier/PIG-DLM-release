@@ -34,6 +34,15 @@ Steps 0-4 done on this branch; the backbones' code lives in `pig/backbones/`, pa
 exact (hub/parity.py, 16 prompts per model), the full build is in /ssd1/qdf76/pig_hub_dist, and the four-dataset
 consistency campaign (hub/consistency.py) is the remaining check before upload.
 
+## Checks done so far
+
+- Parity (hub/parity.py, 16 prompts per model, PIG.INT): exact for both models between the upstream remote
+  code on transformers 4.x and this package on 5.19 (same tokens and forward counts; zero difference in every
+  per-round confidence, entropy and adapter matrix).
+- Combined repositories built to /ssd1/qdf76/pig_hub_dist and loaded through AutoModel: 9 of 9 decodes identical
+  to the library for each model (hub.verify --repo <dir> --no-build).
+- Four-dataset campaign (hub/consistency.py; prior version vs this build vs the paper's tables): running.
+
 ## Steps
 
 0. Probe: load both upstream remote codes under transformers 5.x and run the three modes; record what breaks.
