@@ -26,7 +26,7 @@ tables that turn that into the probability of a parallel commit disagreeing with
 `transformers` wrapper that loads the backbone and runs the PIG.INT and PIG.EXT decoders.
 
 **Paper:** *PIG: Parallel Inconsistency Guidance for Accelerating Diffusion Language Models*, Quentin Fruytier,
-Anton Xue, Sanjay Shakkottai, Sujay Sanghavi (UT Austin), 2026; arXiv link to follow.
+Anton Xue, Sanjay Shakkottai, Sujay Sanghavi (UT Austin), 2026; [arXiv:2610.17375](https://arxiv.org/abs/2610.17375).
 **Code, harness and details:** https://github.com/Quentin-Fruytier/PIG-DLM-release.
 **Companion:** [UT-IFML/Nemotron-Labs-Diffusion-3B-PIG](https://huggingface.co/UT-IFML/Nemotron-Labs-Diffusion-3B-PIG).
 
@@ -75,6 +75,9 @@ under the MIT License and is not redistributed here.
   title  = {{PIG}: Parallel Inconsistency Guidance for Accelerating Diffusion Language Models},
   author = {Fruytier, Quentin and Xue, Anton and Shakkottai, Sanjay and Sanghavi, Sujay},
   year   = {2026},
-  note   = {arXiv preprint; identifier to follow}
+  eprint = {2610.17375},
+  archivePrefix = {arXiv},
+  primaryClass = {cs.CL},
+  url    = {https://arxiv.org/abs/2610.17375}
 }
 ```

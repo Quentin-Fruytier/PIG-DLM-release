@@ -11,7 +11,7 @@ benchmark harness that reproduces the paper's accuracy-throughput frontiers live
 > **Release in progress (October 2026).** Code, adapters and tables are here and mirrored on the
 > Hugging Face Hub ([LLaDA-8B-Instruct-PIG](https://huggingface.co/UT-IFML/LLaDA-8B-Instruct-PIG),
 > [Nemotron-Labs-Diffusion-3B-PIG](https://huggingface.co/UT-IFML/Nemotron-Labs-Diffusion-3B-PIG)).
-> Still to come: the arXiv link to the paper. The repository URL is stable.
+> Paper: [arXiv:2610.17375](https://arxiv.org/abs/2610.17375).
 
 ## Use PIG
 
@@ -186,6 +186,9 @@ not redistributed; their licenses, and the provenance of the Nemotron assets, ar
   title  = {{PIG}: Parallel Inconsistency Guidance for Accelerating Diffusion Language Models},
   author = {Fruytier, Quentin and Xue, Anton and Shakkottai, Sanjay and Sanghavi, Sujay},
   year   = {2026},
-  note   = {arXiv preprint; identifier to follow}
+  eprint = {2610.17375},
+  archivePrefix = {arXiv},
+  primaryClass = {cs.CL},
+  url    = {https://arxiv.org/abs/2610.17375}
 }
 ```

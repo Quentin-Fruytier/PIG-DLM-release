@@ -28,7 +28,7 @@ commit disagreeing with sequential decoding, and a `transformers` wrapper that l
 PIG.INT and PIG.EXT decoders.
 
 **Paper:** *PIG: Parallel Inconsistency Guidance for Accelerating Diffusion Language Models*, Quentin Fruytier,
-Anton Xue, Sanjay Shakkottai, Sujay Sanghavi (UT Austin), 2026; arXiv link to follow.
+Anton Xue, Sanjay Shakkottai, Sujay Sanghavi (UT Austin), 2026; [arXiv:2610.17375](https://arxiv.org/abs/2610.17375).
 **Code, harness and details:** https://github.com/Quentin-Fruytier/PIG-DLM-release.
 **Companion:** [UT-IFML/LLaDA-8B-Instruct-PIG](https://huggingface.co/UT-IFML/LLaDA-8B-Instruct-PIG).
 
@@ -85,6 +85,9 @@ used only to identify the model.
   title  = {{PIG}: Parallel Inconsistency Guidance for Accelerating Diffusion Language Models},
   author = {Fruytier, Quentin and Xue, Anton and Shakkottai, Sanjay and Sanghavi, Sujay},
   year   = {2026},
-  note   = {arXiv preprint; identifier to follow}
+  eprint = {2610.17375},
+  archivePrefix = {arXiv},
+  primaryClass = {cs.CL},
+  url    = {https://arxiv.org/abs/2610.17375}
 }
 ```
