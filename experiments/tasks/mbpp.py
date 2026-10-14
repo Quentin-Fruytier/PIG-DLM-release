@@ -120,7 +120,7 @@ def run_tests(code, test_list, setup="", timeout=10):
         path = f.name
     try:
         r = subprocess.run([sys.executable, path], capture_output=True, timeout=timeout,
-                           env={**os.environ, "OMP_NUM_THREADS": "1"})
+                           env={**os.environ, "OMP_NUM_THREADS": "1", "PYTHONHASHSEED": "0"})   # repeatable set order
         return r.returncode == 0
     except subprocess.TimeoutExpired:
         return False

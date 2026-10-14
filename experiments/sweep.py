@@ -13,7 +13,8 @@ Config format (JSON):
                                 "pig.int": [phi, ...],
                                 "pig.ext": [theta or [theta, floor], ...]}, ...}
     }
-Cells whose result file already exists are skipped, so an interrupted sweep resumes where it stopped.
+Cells whose result file already exists are skipped, so an interrupted sweep resumes where it stopped. Each cell
+is claimed with a `<cell>.lock` directory before it runs, so several workers can share one grid.
 """
 import argparse
 import json
@@ -79,8 +80,19 @@ def main():
     problems = task.load_problems()[args.start:args.start + n]
     decoder = load_decoder(model, args.assets, args.device)
     for geometry, spec, path in todo:
-        rule = make_rule(model, assets=args.assets, **spec)
-        run_cell(decoder, model, task, rule, geometry, spec, problems, path, assets=args.assets)
+        lock = path.with_suffix(".lock")
+        if path.exists():
+            continue                                   # finished by another worker since this one started
+        try:
+            lock.mkdir(parents=True)
+        except FileExistsError:
+            print(f"[{path.stem}] claimed by another worker, skipping", flush=True)
+            continue
+        try:
+            rule = make_rule(model, assets=args.assets, **spec)
+            run_cell(decoder, model, task, rule, geometry, spec, problems, path, assets=args.assets)
+        finally:
+            lock.rmdir()
 
 
 if __name__ == "__main__":

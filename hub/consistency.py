@@ -23,6 +23,8 @@ def paper_cell(tables, model, task, geometry, block, rule, knob):
         return None
     tex = f.read_text()
     body = tex[tex.index("\\midrule"):tex.index("\\bottomrule")]
+    if (geometry, block) not in TABLE_REGIME:
+        return None                                    # a geometry the paper's tables do not report
     regime, want = None, TABLE_REGIME[(geometry, block)]
     lane = {"confidence": 0, "pig.int": 1, "pig.ext": 2}[rule]
     for row in body.split("\\\\"):
@@ -57,8 +59,9 @@ def main():
     A, B = Path(args.a), Path(args.b)
     files = sorted(p.relative_to(A) for p in A.rglob("*.json"))
     bad = 0
-    print("| model | task | geometry | lane | knob | n | same text | same fwd | acc A | acc B | TPF A | TPF B | paper acc [Wilson] | paper TPF |")
-    print("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
+    print("| model | task | geometry | lane | knob | n | same text | same fwd | same score | acc A | acc B | TPF A | TPF B | paper acc [Wilson] | paper TPF |")
+    print("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
+    grading_only = []
     for rel in files:
         if not (B / rel).exists():
             print(f"| {rel} | missing in B |"); continue
@@ -68,14 +71,20 @@ def main():
         ids = sorted(set(pa) & set(pb))
         same_text = sum(pa[i]["completion"] == pb[i]["completion"] for i in ids)
         same_fwd = sum(pa[i]["forwards"] == pb[i]["forwards"] for i in ids)
+        same_score = sum(pa[i]["scores"] == pb[i]["scores"] for i in ids)
+        grading_only += [f"{rel}: {i}" for i in ids if pa[i]["completion"] == pb[i]["completion"] and pa[i]["scores"] != pb[i]["scores"]]
         bad += (same_text != len(ids)) or (same_fwd != len(ids))
         knob = c["phi"] if c["rule"] == "pig.int" else c["theta"] if c["rule"] == "pig.ext" else c["nu"]
         paper = paper_cell(args.tables, c["model"], c["task"], c["geometry"], c["block"], c["rule"], knob) if args.tables else None
         ptxt = f"{paper[0]:.3f} [{paper[1]:.3f}, {paper[2]:.3f}] | {paper[3]:.2f}" if paper else "n/a | n/a"
         print(f"| {c['model']} | {c['task']} | {c['geometry']}{c['block']} | {c['rule']} | {knob:g} | {len(ids)} | "
-              f"{same_text}/{len(ids)} | {same_fwd}/{len(ids)} | {sa['accuracy']:.3f} | {sb['accuracy']:.3f} | "
+              f"{same_text}/{len(ids)} | {same_fwd}/{len(ids)} | {same_score}/{len(ids)} | {sa['accuracy']:.3f} | {sb['accuracy']:.3f} | "
               f"{sa['tpf']:.2f} | {sb['tpf']:.2f} | {ptxt} |")
-    print(f"\n{len(files)} cells, {bad} with a differing problem")
+    print(f"\n{len(files)} cells, {bad} with a differing completion or forward count")
+    if grading_only:
+        print("identical completions graded differently (sandbox nondeterminism, not decoding):")
+        for g in grading_only:
+            print("  -", g)
     sys.exit(1 if bad else 0)
 
 

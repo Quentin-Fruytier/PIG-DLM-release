@@ -83,7 +83,7 @@ def run_program(program, test, entry_point, timeout=10):
         path = f.name
     try:
         r = subprocess.run([sys.executable, path], capture_output=True, timeout=timeout,
-                           env={**os.environ, "OMP_NUM_THREADS": "1"})
+                           env={**os.environ, "OMP_NUM_THREADS": "1", "PYTHONHASHSEED": "0"})   # repeatable set order
         return r.returncode == 0
     except subprocess.TimeoutExpired:
         return False
@@ -137,7 +137,7 @@ def grade_nemotron(problem, completion, timeout=15.0):
             f.write(full)
         try:
             subprocess.run([sys.executable, "-c", _EXEC, src, verdict], capture_output=True,
-                           timeout=timeout, env={**os.environ, "OMP_NUM_THREADS": "1"})
+                           timeout=timeout, env={**os.environ, "OMP_NUM_THREADS": "1", "PYTHONHASHSEED": "0"})
         except subprocess.TimeoutExpired:
             return False
         except Exception:
