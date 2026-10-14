@@ -20,6 +20,7 @@ environment, verification and release. The human introduction is README.md.
 | `experiments/` | the benchmark harness: `tasks/` (`humaneval`, `gsm8k`), `evaluate`, `sweep`, `summarize`, `plot`, `configs/`, `stats`; protocol in `experiments/README.md` |
 | `hub/` | the Hugging Face Hub build: `build` (writes `hub/dist/<repo>/`), `verify` (GPU: wrapper == library), `upload`; `cards/` (README and AGENTS per repository); `configuration_pig.py`, `modeling_pig.py` (the wrapper, concatenated with `pig/` into one file at build time) |
 | `tests/` | `python -m pytest`, CPU only |
+| `CITATION.cff` | citation metadata (GitHub's "Cite this repository"); the paper is arXiv:2610.17375 |
 
 ## Library API
 

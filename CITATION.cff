@@ -1,0 +1,38 @@
+cff-version: 1.2.0
+message: "If you use this code, the adapters or the calibration tables, please cite the paper."
+title: "PIG: Parallel Inconsistency Guidance for Accelerating Diffusion Language Models"
+type: software
+license: MIT
+repository-code: "https://github.com/Quentin-Fruytier/PIG-DLM-release"
+authors:
+  - family-names: Fruytier
+    given-names: Quentin
+    affiliation: The University of Texas at Austin
+  - family-names: Xue
+    given-names: Anton
+    affiliation: The University of Texas at Austin
+  - family-names: Shakkottai
+    given-names: Sanjay
+    affiliation: The University of Texas at Austin
+  - family-names: Sanghavi
+    given-names: Sujay
+    affiliation: The University of Texas at Austin
+preferred-citation:
+  type: article
+  title: "PIG: Parallel Inconsistency Guidance for Accelerating Diffusion Language Models"
+  authors:
+    - family-names: Fruytier
+      given-names: Quentin
+    - family-names: Xue
+      given-names: Anton
+    - family-names: Shakkottai
+      given-names: Sanjay
+    - family-names: Sanghavi
+      given-names: Sujay
+  year: 2026
+  journal: "arXiv preprint arXiv:2610.17375"
+  url: "https://arxiv.org/abs/2610.17375"
+  identifiers:
+    - type: other
+      value: "arXiv:2610.17375"
+      description: The arXiv preprint
