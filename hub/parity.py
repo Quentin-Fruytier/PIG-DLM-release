@@ -1,6 +1,6 @@
 """Parity of two builds of PIG: record what the decoder sees and emits, then compare two recordings.
 
-    python -m hub.parity capture --family llada --out /ssd1/.../llada_main.pt [--n 8] [--device cuda:0] [--matrix]
+    python -m hub.parity capture --family llada --out parity/llada_a.pt [--n 8] [--device cuda:0] [--matrix]
     python -m hub.parity compare A.pt B.pt
 
 capture: for the first --n HumanEval and the first --n GSM8K prompts (the model's own prompt protocol),

@@ -1,6 +1,6 @@
 """Push the built repositories to the Hugging Face Hub.
 
-    python -m hub.upload [--family llada|nemotron] [--message "..."] [--dist /ssd1/.../pig_hub_dist]
+    python -m hub.upload [--family llada|nemotron] [--message "..."] [--dist DIR]
 
 Uploads hub/dist/<name>/ to the repository named in hub.build.REPOS, replacing the files of the same
 names and deleting files that are no longer part of the build (only inside that repository). It
