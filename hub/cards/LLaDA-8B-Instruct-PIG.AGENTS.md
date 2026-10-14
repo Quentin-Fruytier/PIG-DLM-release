@@ -7,7 +7,7 @@ https://github.com/Quentin-Fruytier/PIG-DLM-release (library `pig/`, harness `ex
 
 - Repository: `UT-IFML/LLaDA-8B-Instruct-PIG`; MIT (LLaDA-8B-Instruct and the PIG files); family `llada`.
 - Backbone: `GSAI-ML/LLaDA-8B-Instruct` at revision `08b83a6feb34df1a6011b80c3c00c7563e963b07`; its weights, tokenizer and modeling code are copied into this repository (NOTICE.md).
-- Paper: PIG: Parallel Inconsistency Guidance for Accelerating Diffusion Language Models (Fruytier, Xue, Shakkottai, Sanghavi, 2026); arXiv identifier to follow.
+- Paper: PIG: Parallel Inconsistency Guidance for Accelerating Diffusion Language Models (Fruytier, Xue, Shakkottai, Sanghavi, 2026); arXiv:2610.17375 (https://arxiv.org/abs/2610.17375).
 - Environment: `transformers>=5.19` (one environment serves both PIG models), `torch` (tested 2.11+cu128), `safetensors`, `numpy`; a CUDA GPU with 24 GB; about a minute to load.
 
 ## Files
@@ -160,6 +160,9 @@ In the code repository: `python -m hub.build` writes this repository's files fro
   title  = {{PIG}: Parallel Inconsistency Guidance for Accelerating Diffusion Language Models},
   author = {Fruytier, Quentin and Xue, Anton and Shakkottai, Sanjay and Sanghavi, Sujay},
   year   = {2026},
-  note   = {arXiv preprint; identifier to follow}
+  eprint = {2610.17375},
+  archivePrefix = {arXiv},
+  primaryClass = {cs.CL},
+  url    = {https://arxiv.org/abs/2610.17375}
 }
 ```

@@ -25,7 +25,7 @@ at the same accuracy. This repository is the whole model: the backbone, a 1.9M-p
 calibration tables.
 
 **Paper:** *PIG: Parallel Inconsistency Guidance for Accelerating Diffusion Language Models*, Fruytier, Xue,
-Shakkottai, Sanghavi (UT Austin), 2026; arXiv link to follow. **Code:** https://github.com/Quentin-Fruytier/PIG-DLM-release
+Shakkottai, Sanghavi (UT Austin), 2026; [arXiv:2610.17375](https://arxiv.org/abs/2610.17375). **Code:** https://github.com/Quentin-Fruytier/PIG-DLM-release
 **Companion:** [UT-IFML/LLaDA-8B-Instruct-PIG](https://huggingface.co/UT-IFML/LLaDA-8B-Instruct-PIG)
 
 ## Use
@@ -64,6 +64,9 @@ released under the MIT License. NVIDIA's names and marks are used only to identi
   title  = {{PIG}: Parallel Inconsistency Guidance for Accelerating Diffusion Language Models},
   author = {Fruytier, Quentin and Xue, Anton and Shakkottai, Sanjay and Sanghavi, Sujay},
   year   = {2026},
-  note   = {arXiv preprint; identifier to follow}
+  eprint = {2610.17375},
+  archivePrefix = {arXiv},
+  primaryClass = {cs.CL},
+  url    = {https://arxiv.org/abs/2610.17375}
 }
 ```

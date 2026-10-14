@@ -7,7 +7,7 @@ https://github.com/Quentin-Fruytier/PIG-DLM-release (library `pig/`, harness `ex
 
 - Repository: `UT-IFML/Nemotron-Labs-Diffusion-3B-PIG`; NVIDIA Nemotron Open Model License for the backbone (LICENSE), MIT for the PIG files; family `nemotron`.
 - Backbone: `nvidia/Nemotron-Labs-Diffusion-3B` at revision `0d51902da1f8869f83413ce642fab402fa5641e0`; its weights, tokenizer and modeling code are copied into this repository (NOTICE.md).
-- Paper: PIG: Parallel Inconsistency Guidance for Accelerating Diffusion Language Models (Fruytier, Xue, Shakkottai, Sanghavi, 2026); arXiv identifier to follow.
+- Paper: PIG: Parallel Inconsistency Guidance for Accelerating Diffusion Language Models (Fruytier, Xue, Shakkottai, Sanghavi, 2026); arXiv:2610.17375 (https://arxiv.org/abs/2610.17375).
 - Environment: `transformers>=5.19` (one environment serves both PIG models), `torch` (tested 2.11+cu128), `safetensors`, `numpy`, `accelerate`; a CUDA GPU with 8 GB.
 
 ## Files
@@ -139,6 +139,9 @@ In the code repository: `python -m hub.build` writes this repository's files fro
   title  = {{PIG}: Parallel Inconsistency Guidance for Accelerating Diffusion Language Models},
   author = {Fruytier, Quentin and Xue, Anton and Shakkottai, Sanjay and Sanghavi, Sujay},
   year   = {2026},
-  note   = {arXiv preprint; identifier to follow}
+  eprint = {2610.17375},
+  archivePrefix = {arXiv},
+  primaryClass = {cs.CL},
+  url    = {https://arxiv.org/abs/2610.17375}
 }
 ```

@@ -22,7 +22,7 @@ tags:
 whole model: the backbone, a 2.2M-parameter PIG adapter and its calibration tables.
 
 **Paper:** *PIG: Parallel Inconsistency Guidance for Accelerating Diffusion Language Models*, Fruytier, Xue,
-Shakkottai, Sanghavi (UT Austin), 2026; arXiv link to follow. **Code:** https://github.com/Quentin-Fruytier/PIG-DLM-release
+Shakkottai, Sanghavi (UT Austin), 2026; [arXiv:2610.17375](https://arxiv.org/abs/2610.17375). **Code:** https://github.com/Quentin-Fruytier/PIG-DLM-release
 **Companion:** [UT-IFML/Nemotron-Labs-Diffusion-3B-PIG](https://huggingface.co/UT-IFML/Nemotron-Labs-Diffusion-3B-PIG)
 
 ## Use
@@ -59,6 +59,9 @@ MIT. The backbone is LLaDA-8B-Instruct, released by its authors under the MIT Li
   title  = {{PIG}: Parallel Inconsistency Guidance for Accelerating Diffusion Language Models},
   author = {Fruytier, Quentin and Xue, Anton and Shakkottai, Sanjay and Sanghavi, Sujay},
   year   = {2026},
-  note   = {arXiv preprint; identifier to follow}
+  eprint = {2610.17375},
+  archivePrefix = {arXiv},
+  primaryClass = {cs.CL},
+  url    = {https://arxiv.org/abs/2610.17375}
 }
 ```
