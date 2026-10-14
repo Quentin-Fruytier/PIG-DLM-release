@@ -1,0 +1,8 @@
+Licensed by NVIDIA Corporation under the NVIDIA Nemotron Model License.
+
+The files in this directory are copied from https://huggingface.co/nvidia/Nemotron-Labs-Diffusion-3B
+(revision 0d51902da1f8869f83413ce642fab402fa5641e0) and are distributed under the NVIDIA Nemotron Open Model
+License, a copy of which is in LICENSE next to this file. configuration_nemotron_labs_diffusion.py also keeps
+its upstream Apache License 2.0 header (EleutherAI and the HuggingFace Inc. team). Changes made for
+PIG-DLM-release are marked "# PIG:" in the files (none at the time of writing beyond the provenance header).
+NVIDIA's trade names and trademarks are used only to identify the model.

@@ -25,12 +25,15 @@ def test_layout_is_the_standard_shape(built):
     spec = REPOS[fam]
     tokenizer = {f for f in TOKENIZER_FILES if (d / f).exists()}
     assert {"tokenizer.json", "tokenizer_config.json"} <= tokenizer
-    assert {p.name for p in d.iterdir()} == {"README.md", "AGENTS.md", "NOTICE.md", "config.json", "configuration_pig.py",
+    assert {p.name for p in d.iterdir()} == {"README.md", "AGENTS.md", "NOTICE.md", "LICENSE", "config.json", "configuration_pig.py",
                                              "modeling_pig.py", "model.safetensors", *spec["backbone_files"], *tokenizer}
     cfg = json.loads((d / "config.json").read_text())
     assert cfg["family"] == fam and cfg["auto_map"]["AutoModel"] == "modeling_pig.PIGModel"
     assert cfg["backbone"] and cfg["backbone_revision"] and cfg["tables"] == ["confidence", "entropy"]
     assert cfg["backbone_config"] and "auto_map" not in cfg["backbone_config"] and cfg["dtype"] == "bfloat16"
+    if fam == "nemotron":
+        assert "Licensed by NVIDIA Corporation under the NVIDIA Nemotron Model License." in (d / "NOTICE.md").read_text()
+        assert "NVIDIA Nemotron Open Model License" in (d / "LICENSE").read_text() and "END OF TERMS AND CONDITIONS" in (d / "LICENSE").read_text()
     assert set(cfg["table_provenance"]) == {"confidence", "entropy"}
     from pig.api import DEFAULTS
     assert cfg["defaults"] == DEFAULTS[fam]

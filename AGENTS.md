@@ -1,6 +1,7 @@
 # AGENTS.md
 
-Machine-oriented map of this repository. The human introduction is README.md.
+Machine-oriented reference for this repository: layout, full API, algorithms, extension points,
+environment, verification and release. The human introduction is README.md.
 
 ## What is here
 
@@ -10,6 +11,7 @@ Machine-oriented map of this repository. The human introduction is README.md.
 | `pig/rules.py` | `Round` (what a rule sees), `pig_int`, `pig_ext`, `confidence_threshold` as functions; `PIGInt`, `PIGExt`, `ConfidenceThreshold` as callables; `confidence_order`, `aggregate_influence`, `waiting_gain` |
 | `pig/tables.py` | `FlipTable(x_edges, mu_edges, rates, axis)`: the calibration tables, `FlipTable.load(npz)` |
 | `pig/fde/` | the adapters (`LLaDAFDE`, `NemotronFDE`, `load_fde`) |
+| `pig/backbones/` | the backbones' modeling code, copied from the upstream repositories at the pinned revisions; changes marked `# PIG:` (LLaDA: `post_init()`, `tie_weights(**kwargs)`, `use_cache` on the config, no Auto registration; Nemotron: none). Licenses: `pig/backbones/<model>/LICENSE`, NOTICE for Nemotron |
 | `pig/llada.py`, `pig/nemotron.py` | the decode loops: `LLaDADecoder` / `NemotronDecoder` (`chat_prompt`, `generate`, class attributes `family`, `geometry_cls`), geometries `Geometry` / `Window`, constants `MODEL_ID`, `REVISION`, `CANVAS` / `MAX_NEW` |
 | `pig/api.py` | `PIG`, `Output`, `make_rule`, `DEFAULTS`, `MODES`, `FAMILIES` |
 | `pig/loading.py` | `load`, `load_decoder`, `load_tables`, `make_geometry` |
@@ -49,5 +51,80 @@ out = model.generate(prompt, mode=None, phi=None, theta=None, floor=None, window
 - Rule names are `pig.int`, `pig.ext`, `confidence` everywhere (code, configs, file names). The baseline lane is labelled Fast-dLLM in plots.
 - Greedy decoding only; LLaDA always fills its canvas; Nemotron stops at EOS.
 - No result files are committed. `results/` is ignored.
-- Environments: one per backbone (`requirements/llada.txt`: transformers 4.49.0; `requirements/nemotron.txt`: transformers 4.56.2), because each backbone's own remote code pins the range.
+- Environment: one for both backbones, `requirements.txt` (`transformers>=5.19,<6`). No `trust_remote_code` in the library: the backbones are built from `pig/backbones/` with the upstream config and weights at the pinned revisions (`GSAI-ML/LLaDA-8B-Instruct@08b83a6feb34df1a6011b80c3c00c7563e963b07`, `nvidia/Nemotron-Labs-Diffusion-3B@0d51902da1f8869f83413ce642fab402fa5641e0`). GPU memory: LLaDA 24 GB (bf16, 16 GB weights), Nemotron 8 GB.
 - Hub release: `python -m hub.build` -> `python -m hub.verify --family F --device cuda:N` (needs a GPU with room for two backbone copies) -> `python -m hub.upload --family F`.
+
+## Algorithms
+
+Each round runs one forward pass, gives every candidate position its argmax token, confidence νᵢ and entropy
+Hᵢ, runs the adapter once (the directed matrix D̂, D̂ᵢⱼ ≈ Hᵢ(x) − Hᵢ(x with j committed to its argmax)), and
+commits a prefix of the candidates in decreasing confidence. The aggregate influence of the more confident
+members of S on i is μ̂ᵢ(S) = Σ_{j ∈ S, νⱼ > νᵢ} max(|D̂ᵢⱼ|, |D̂ⱼᵢ|). The tables p̂_ν(ν, μ) (PIG.INT) and
+p̂_H(H, μ) (PIG.EXT) give the probability that a parallel commit differs from its sequential reference.
+
+**PIG.INT(φ): single-round regret** (paper Algorithm 2). Keep the predicted number of mismatches inside
+the round below φ.
+
+```
+S ← {most confident candidate}          # its flip rate is 0: its sequential reference is its own prediction
+spent ← 0
+for i in the remaining candidates, by decreasing confidence:
+    bᵢ ← p̂_ν(νᵢ, μ̂ᵢ(S))                 # predicted probability that i disagrees with its sequential reference
+    if spent + bᵢ > φ: break             # the first candidate that does not fit closes the round
+    S ← S ∪ {i};  spent ← spent + bᵢ
+commit S in parallel
+```
+
+**PIG.EXT(θ): cross-round regret** (paper Algorithm 3). Ask whether waiting one more forward pass would
+remove regret on the upcoming candidates, and close the round once it would remove more than θ.
+
+```
+S ← ∅
+for j in the candidates, by decreasing confidence:
+    if S ≠ ∅ and νⱼ < floor: break       # optional confidence floor on admission
+    S ← S ∪ {j}                          # admit first ...
+    N ← the next h = 16 candidates
+    Ĉ(S) ← Σ_{i∈N} [ p̂_H(Hᵢ, μ̂ᵢ(S∪N)) − p̂_H(Hᵢ − max_{k∈S} D̂ᵢₖ, μ̂ᵢ(S∪N)) ]
+    if Ĉ(S) > θ: break                   # ... then stop when waiting would buy more than θ; j stays in S
+commit S in parallel
+```
+
+The first term of Ĉ(S) estimates the regret of committing N now. The second estimates it after S is
+committed and the model is re-evaluated, since committing S is predicted to lower each entropy Hᵢ by
+max_{k∈S} D̂ᵢₖ. The two slowest operating points of the paper's PIG.EXT lane add a confidence floor:
+θ = 0.125 with ν ≥ 0.9, and θ = 0.25 with ν ≥ 0.8.
+
+Implementations: `pig/rules.py` (`pig_int`, `pig_ext`, `confidence_threshold`, and the callables `PIGInt`,
+`PIGExt`, `ConfidenceThreshold`); tests transcribe the paper's algorithm boxes (`tests/test_rules.py`).
+
+## Extending
+
+A rule is any callable `Round -> list of positions`; `Round` has `cand` (eligible positions, ascending), `conf`,
+`H` (per position) and `D` (adapter matrix, row = receiver, column = source).
+
+```python
+import pig
+from pig import Round, confidence_order
+
+def top_k(rnd: Round, k=4):                   # commit the k most confident candidates
+    return confidence_order(rnd.cand, rnd.conf)[:k]
+
+model = pig.load("llada")
+tokens, forwards, _ = model.decoder.generate(model.encode("prompt"), top_k, model.geometry("block", 64))
+```
+
+`generate()` also takes `window` (PIG.EXT look-ahead |N(S)|, default 16), `max_new_tokens` (LLaDA canvas
+length, fitted at 256 and always filled; Nemotron generation budget, default 2048, stops at end-of-sequence)
+and `chat_template` (default True; pass token ids or `chat_template=False` to skip the template).
+
+## Verification tools (hub/)
+
+- `python -m hub.verify --family F [--repo DIR_OR_HUB_ID --no-build] --device cuda:N`: the Hub model and
+  `pig.load(F)` decode identically (tokens and forward counts) on HumanEval prompts, three modes. Needs room for
+  two backbone copies.
+- `python -m hub.parity capture --family F --out X.pt [--matrix]` then `python -m hub.parity compare A.pt B.pt`:
+  records per-round `conf`, `H`, `D` and the decoded tokens of two builds (for example two transformers versions)
+  and compares them; `--matrix` covers every geometry with four operating points.
+- `python -m hub.consistency --a DIR --b DIR --tables PAPER/tables`: compares two result trees cell by cell
+  (completions and forward counts) and both against the paper's frontier tables.
+

@@ -5,7 +5,7 @@ https://github.com/Quentin-Fruytier/PIG-DLM-release (library `pig/`, harness `ex
 
 ## Identity
 
-- Repository: `UT-IFML/LLaDA-8B-Instruct-PIG`; license MIT (files here); family `llada`.
+- Repository: `UT-IFML/LLaDA-8B-Instruct-PIG`; MIT (LLaDA-8B-Instruct and the PIG files); family `llada`.
 - Backbone: `GSAI-ML/LLaDA-8B-Instruct` at revision `08b83a6feb34df1a6011b80c3c00c7563e963b07`; its weights, tokenizer and modeling code are copied into this repository (NOTICE.md).
 - Paper: PIG: Parallel Inconsistency Guidance for Accelerating Diffusion Language Models (Fruytier, Xue, Shakkottai, Sanghavi, 2026); arXiv identifier to follow.
 - Environment: `transformers>=5.19` (one environment serves both PIG models), `torch` (tested 2.11+cu128), `safetensors`, `numpy`; a CUDA GPU with 24 GB; about a minute to load.
@@ -17,7 +17,8 @@ https://github.com/Quentin-Fruytier/PIG-DLM-release (library `pig/`, harness `ex
 | `model-0000i-of-0000n.safetensors`, `model.safetensors.index.json` | one state dict: the backbone (keys `backbone.*`, bf16, copied tensor for tensor from the upstream revision), the adapter (55 tensors, 2,165,527 parameters, fp32, keys `fde.*`) and the two calibration tables (keys `tables.<axis>.<field>` for axis in `confidence`, `entropy` and field in `x_edges`, `mu_edges`, `rates`, `rows`, `flips`, in the last shard) |
 | `config.json` | `family`, `backbone` and `backbone_revision` (provenance), `backbone_config` (the backbone's own config), `defaults` (the `generate` defaults), `tables` (the axes stored in the weights), `adapter` and `table_provenance` (sources, counts, package commit), `auto_map`, `dtype` |
 | `configuration_llada.py`, `modeling_llada.py` | the backbone's modeling code, copied from the upstream revision with the changes marked `# PIG:` |
-| tokenizer files, `NOTICE.md` | the backbone's tokenizer; provenance and licences |
+| tokenizer files | the backbone's tokenizer, copied from the upstream revision |
+| `LICENSE`, `NOTICE.md` | `LICENSE` is the MIT License as declared for LLaDA-8B-Instruct (it also covers the PIG files); `NOTICE.md` states provenance |
 | `configuration_pig.py` | `PIGConfig(PretrainedConfig)` |
 | `modeling_pig.py` | one file, built by `python -m hub.build` from the code repository: sections `pig/rules.py` (selection rules), `pig/tables.py` (`FlipTable`), `pig/fde/*` (the adapter, `PIGFDE`), `pig/llada.py` (the decode loop, `PIGDecoder`, `PIGGeometry`), `pig/api.py` (`PIG`, `Output`, `make_rule`, `DEFAULTS`) and the wrapper `PIGModel` |
 

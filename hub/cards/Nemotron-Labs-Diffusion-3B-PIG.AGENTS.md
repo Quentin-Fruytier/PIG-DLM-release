@@ -5,7 +5,7 @@ https://github.com/Quentin-Fruytier/PIG-DLM-release (library `pig/`, harness `ex
 
 ## Identity
 
-- Repository: `UT-IFML/Nemotron-Labs-Diffusion-3B-PIG`; license MIT (files here); family `nemotron`.
+- Repository: `UT-IFML/Nemotron-Labs-Diffusion-3B-PIG`; NVIDIA Nemotron Open Model License for the backbone (LICENSE), MIT for the PIG files; family `nemotron`.
 - Backbone: `nvidia/Nemotron-Labs-Diffusion-3B` at revision `0d51902da1f8869f83413ce642fab402fa5641e0`; its weights, tokenizer and modeling code are copied into this repository (NOTICE.md).
 - Paper: PIG: Parallel Inconsistency Guidance for Accelerating Diffusion Language Models (Fruytier, Xue, Shakkottai, Sanghavi, 2026); arXiv identifier to follow.
 - Environment: `transformers>=5.19` (one environment serves both PIG models), `torch` (tested 2.11+cu128), `safetensors`, `numpy`, `accelerate`; a CUDA GPU with 8 GB.
@@ -17,7 +17,8 @@ https://github.com/Quentin-Fruytier/PIG-DLM-release (library `pig/`, harness `ex
 | `model-0000i-of-0000n.safetensors`, `model.safetensors.index.json` | one state dict: the backbone (keys `backbone.*`, bf16, copied tensor for tensor from the upstream revision), the adapter (55 tensors, 1,903,383 parameters, fp32, keys `fde.*`) and the two calibration tables (keys `tables.<axis>.<field>` for axis in `confidence`, `entropy` and field in `x_edges`, `mu_edges`, `rates`, `rows`, `flips`, in the last shard) |
 | `config.json` | `family`, `backbone` and `backbone_revision` (provenance), `backbone_config` (the backbone's own config), `defaults` (the `generate` defaults), `tables` (the axes stored in the weights), `adapter` and `table_provenance` (sources, counts, package commit), `auto_map`, `dtype` |
 | `configuration_nemotron_labs_diffusion.py`, `modeling_ministral.py`, `modeling_nemotron_labs_diffusion.py` | the backbone's modeling code, copied from the upstream revision with the changes marked `# PIG:` |
-| tokenizer files, `NOTICE.md` | the backbone's tokenizer; provenance and licences |
+| tokenizer files | the backbone's tokenizer, copied from the upstream revision |
+| `LICENSE`, `NOTICE.md` | `LICENSE` is the full NVIDIA Nemotron Open Model License (governs the backbone's weights, tokenizer and code); the PIG adapter, tables and wrapper code are MIT; `NOTICE.md` states provenance and carries NVIDIA's required attribution statement |
 | `configuration_pig.py` | `PIGConfig(PretrainedConfig)` |
 | `modeling_pig.py` | one file, built by `python -m hub.build` from the code repository: sections `pig/rules.py` (selection rules), `pig/tables.py` (`FlipTable`), `pig/fde/*` (the adapter, `PIGFDE`), `pig/nemotron.py` (the decode loop, `PIGDecoder`, `PIGGeometry`), `pig/api.py` (`PIG`, `Output`, `make_rule`, `DEFAULTS`) and the wrapper `PIGModel` |
 

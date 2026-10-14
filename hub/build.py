@@ -16,7 +16,7 @@
                                 tables (tables.*). --no-backbone writes a single model.safetensors with the
                                 adapter and tables only and a tiny backbone config (what the tests build)
     tokenizer files             copied from the upstream revision
-    NOTICE.md                   provenance and licences of the backbone
+    LICENSE, NOTICE.md          the backbone's licence (pig/backbones/<family>/LICENSE) and provenance
     README.md, AGENTS.md        the cards (hub/cards/<repo name>.md, hub/cards/<repo name>.AGENTS.md)
 
 The package is the single source of truth: nothing in the output is edited by hand, and tests/test_hub.py
@@ -246,10 +246,11 @@ def notice(family, model_id, revision):
                 f"The modeling files carry the changes made for this package in comments marked `PIG:`.\n\n"
                 f"The PIG adapter, calibration tables, wrapper and the rest of the code are released under the MIT License\n"
                 f"(see the code repository, https://github.com/Quentin-Fruytier/PIG-DLM-release).\n")
-    return (f"# NOTICE\n\nThe backbone weights, tokenizer and modeling code in this repository are copied from\n"
+    return (f"# NOTICE\n\nLicensed by NVIDIA Corporation under the NVIDIA Nemotron Model License.\n\n"
+            f"The backbone weights, tokenizer and modeling code in this repository are copied from\n"
             f"https://huggingface.co/{model_id} (revision {revision}), released by NVIDIA Corporation under the\n"
             f"NVIDIA Nemotron Open Model License\n"
-            f"(https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-nemotron-open-model-license/).\n"
+            f"(full text in LICENSE; https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-nemotron-open-model-license/).\n"
             f"Use of the backbone is governed by that licence; NVIDIA's names and marks are used only to identify the\n"
             f"model. The modeling files carry the changes made for this package in comments marked `PIG:`.\n\n"
             f"The PIG adapter, calibration tables, wrapper and the rest of the code are released under the MIT License\n"
@@ -295,6 +296,7 @@ def build(family, out=DIST, backbone=True):
         if (snapshot / f).exists():
             shutil.copyfile(snapshot / f, dst / f)
     (dst / "NOTICE.md").write_text(notice(family, model_id, revision))
+    shutil.copyfile(ROOT / "pig" / "backbones" / family / "LICENSE", dst / "LICENSE")
 
     # --- config
     adapter = {"parameters": n_params, "source": f"assets/{family}/fde.safetensors", "package": stamp}
