@@ -23,6 +23,7 @@ whole model: the backbone, a 2.2M-parameter PIG adapter and its calibration tabl
 
 **Paper:** *PIG: Parallel Inconsistency Guidance for Accelerating Diffusion Language Models*, Fruytier, Xue,
 Shakkottai, Sanghavi (UT Austin), 2026; [arXiv:2610.17375](https://arxiv.org/abs/2610.17375). **Code:** https://github.com/Quentin-Fruytier/PIG-DLM-release
+**Blog:** [Which tokens can a diffusion language model commit together?](https://quentin-fruytier.github.io/blog/pig-parallel-inconsistency-guidance/)
 **Companion:** [UT-IFML/Nemotron-Labs-Diffusion-3B-PIG](https://huggingface.co/UT-IFML/Nemotron-Labs-Diffusion-3B-PIG)
 
 ## Use

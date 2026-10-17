@@ -26,6 +26,7 @@ calibration tables.
 
 **Paper:** *PIG: Parallel Inconsistency Guidance for Accelerating Diffusion Language Models*, Fruytier, Xue,
 Shakkottai, Sanghavi (UT Austin), 2026; [arXiv:2610.17375](https://arxiv.org/abs/2610.17375). **Code:** https://github.com/Quentin-Fruytier/PIG-DLM-release
+**Blog:** [Which tokens can a diffusion language model commit together?](https://quentin-fruytier.github.io/blog/pig-parallel-inconsistency-guidance/)
 **Companion:** [UT-IFML/LLaDA-8B-Instruct-PIG](https://huggingface.co/UT-IFML/LLaDA-8B-Instruct-PIG)
 
 ## Use

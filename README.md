@@ -7,7 +7,7 @@ adapter predicts, from the forward pass the model already makes, which tokens wo
 they were decoded one at a time; PIG commits in parallel only those that would not.
 
 **Paper:** [arXiv:2610.17375](https://arxiv.org/abs/2610.17375) · **Models:** [LLaDA-8B-Instruct-PIG](https://huggingface.co/UT-IFML/LLaDA-8B-Instruct-PIG),
-[Nemotron-Labs-Diffusion-3B-PIG](https://huggingface.co/UT-IFML/Nemotron-Labs-Diffusion-3B-PIG)
+[Nemotron-Labs-Diffusion-3B-PIG](https://huggingface.co/UT-IFML/Nemotron-Labs-Diffusion-3B-PIG) · **Blog:** [Which tokens can a diffusion language model commit together?](https://quentin-fruytier.github.io/blog/pig-parallel-inconsistency-guidance/)
 
 ## Quick start
 
